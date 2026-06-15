@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Game {
+  id        String   @id @default(cuid())
+
+  pgn       String
+  whiteName String?
+  blackName String?
+  result    String?
+  event     String?
+  site      String?
+  playedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  moves     Move[]
+}
+
+model Move {
+  id         String   @id @default(cuid())
+
+  gameId     String
+  game       Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  moveNumber Int
+  color      String
+  san        String
+  fenBefore  String
+  fenAfter   String
+
+  createdAt  DateTime @default(now())
+
+  @@index([gameId])
+}
