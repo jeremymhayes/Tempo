@@ -1,45 +1,183 @@
-import type { ParsedGame } from "@/types/chess";
+import { DEFAULT_POSITION } from "chess.js";
+import type { ParsedGame, PieceColor } from "@/types/chess";
 import type { ReviewSummary, ReviewedMove } from "@/types/review";
 
-/**
- * Placeholder service layer for the future backend.
- *
- * Today these functions are stubs returning mock/empty data so the UI can be
- * built against a stable interface. When the backend (PostgreSQL + Prisma +
- * Stockfish, served via Cloudflare Tunnel at chess.jeremymhayes.com) is ready,
- * swap the bodies for real `fetch` calls — the call sites won't change.
- */
+export type SavedMoveDto = {
+  id: string;
+  moveNumber: number;
+  color: string;
+  san: string;
+  fenBefore: string;
+  fenAfter: string;
+};
 
-/** A game row as it will appear on the Past Games page. */
+export type ListGameDto = {
+  id: string;
+  whiteName: string | null;
+  blackName: string | null;
+  result: string | null;
+  event: string | null;
+  site: string | null;
+  playedAt: string | null;
+  createdAt: string;
+  moveCount: number;
+};
+
+export type SavedGameDetailDto = {
+  id: string;
+  pgn: string;
+  whiteName: string | null;
+  blackName: string | null;
+  result: string | null;
+  event: string | null;
+  site: string | null;
+  playedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  moves: SavedMoveDto[];
+};
+
 export interface SavedGameSummary {
   id: string;
   white: string;
   black: string;
   result: string;
-  /** Date the game was played (from PGN). */
+  event?: string;
+  site?: string;
   datePlayed?: string;
-  /** Date the review was saved to the account. */
   savedAt: string;
+  moveCount: number;
 }
 
-/** List the signed-in user's saved games. Stubbed: returns empty. */
+async function readApiError(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body.error === "string" ? body.error : response.statusText;
+  } catch {
+    return response.statusText;
+  }
+}
+
+function formatDisplayDate(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+function formatSavedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function toPgnDate(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}.${month}.${day}`;
+}
+
+export function toSavedGameSummary(game: ListGameDto): SavedGameSummary {
+  return {
+    id: game.id,
+    white: game.whiteName || "White",
+    black: game.blackName || "Black",
+    result: game.result || "*",
+    event: game.event || undefined,
+    site: game.site || undefined,
+    datePlayed: formatDisplayDate(game.playedAt),
+    savedAt: formatSavedAt(game.createdAt),
+    moveCount: game.moveCount,
+  };
+}
+
+export function toParsedGame(game: SavedGameDetailDto): ParsedGame {
+  const result = game.result || "*";
+  const datePlayed = toPgnDate(game.playedAt);
+
+  return {
+    pgn: game.pgn,
+    headers: {
+      Event: game.event || undefined,
+      Site: game.site || undefined,
+      Date: datePlayed,
+      White: game.whiteName || undefined,
+      Black: game.blackName || undefined,
+      Result: result,
+    },
+    initialFen: game.moves[0]?.fenBefore ?? DEFAULT_POSITION,
+    moves: game.moves.map((move, index) => ({
+      ply: index,
+      moveNumber: move.moveNumber,
+      color: move.color as PieceColor,
+      san: move.san,
+      lan: "",
+      from: "",
+      to: "",
+      fenBefore: move.fenBefore,
+      fenAfter: move.fenAfter,
+    })),
+    white: game.whiteName || "White",
+    black: game.blackName || "Black",
+    result: result === "1-0" || result === "0-1" || result === "1/2-1/2" ? result : "*",
+    datePlayed,
+  };
+}
+
 export async function listSavedGames(): Promise<SavedGameSummary[]> {
-  return [];
+  const response = await fetch("/api/games", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  const games = (await response.json()) as ListGameDto[];
+  return games.map(toSavedGameSummary);
 }
 
-/** Persist a reviewed game for later. Stubbed: no-op. */
-export async function saveGame(game: ParsedGame): Promise<{ id: string }> {
-  void game; // will POST to the backend once accounts exist
-  return { id: "local-only" };
+export async function saveGamePgn(pgn: string): Promise<SavedGameDetailDto> {
+  const response = await fetch("/api/games", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pgn }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return (await response.json()) as SavedGameDetailDto;
 }
 
-/**
- * Request engine analysis for a game. Stubbed: echoes moves back with no
- * analysis fields populated. The Stockfish backend will fill these in.
- */
+export async function getSavedGame(id: string): Promise<SavedGameDetailDto> {
+  const response = await fetch(`/api/games/${id}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return (await response.json()) as SavedGameDetailDto;
+}
+
 export async function requestReview(game: ParsedGame): Promise<{
   moves: ReviewedMove[];
   summary: ReviewSummary | null;
 }> {
-  return { moves: game.moves.map((m) => ({ ...m })), summary: null };
+  return { moves: game.moves.map((move) => ({ ...move })), summary: null };
 }

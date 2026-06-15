@@ -23,9 +23,14 @@ import { MoveDetails } from "./move-details";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 
-export function ReviewClient() {
-  const [game, setGame] = useState<ParsedGame | null>(null);
-  const [loaded, setLoaded] = useState(false);
+export function ReviewClient({
+  initialGame,
+}: {
+  initialGame?: ParsedGame | null;
+}) {
+  const hasInitialGame = initialGame !== undefined;
+  const [game, setGame] = useState<ParsedGame | null>(initialGame ?? null);
+  const [loaded, setLoaded] = useState(hasInitialGame);
   const [ply, setPly] = useState(START_PLY);
 
   // Read the game stashed by the import page (sessionStorage survives refresh).
@@ -33,10 +38,11 @@ export function ReviewClient() {
   // (window is undefined during prerender). The cascading-render warning is
   // expected and harmless for a one-time mount read of external storage.
   useEffect(() => {
+    if (hasInitialGame) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setGame(loadCurrentGame());
     setLoaded(true);
-  }, []);
+  }, [hasInitialGame]);
 
   const goStart = useCallback(() => setPly(START_PLY), []);
   const goEnd = useCallback(() => {

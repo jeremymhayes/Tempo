@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Upload, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { parsePgn } from "@/lib/chess/parse-pgn";
+import { saveGamePgn, toParsedGame } from "@/lib/api/games";
 import { saveCurrentGame } from "@/lib/storage";
 import { SAMPLE_PGN } from "@/lib/chess/sample-game";
 
@@ -14,16 +14,21 @@ export function PgnInput() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [pgn, setPgn] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  function review(text: string) {
-    const result = parsePgn(text);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
+  async function review(text: string) {
     setError(null);
-    saveCurrentGame(result.game);
-    router.push("/review");
+    setSaving(true);
+
+    try {
+      const saved = await saveGamePgn(text);
+      saveCurrentGame(toParsedGame(saved));
+      router.push(`/games/${saved.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save that PGN.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -64,8 +69,8 @@ export function PgnInput() {
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={() => review(pgn)} disabled={!pgn.trim()}>
-          Review Game
+        <Button onClick={() => review(pgn)} disabled={!pgn.trim() || saving}>
+          {saving ? "Saving..." : "Save and Review"}
         </Button>
         <Button variant="outline" onClick={() => fileRef.current?.click()}>
           <Upload className="size-4" />

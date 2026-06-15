@@ -46,5 +46,6 @@ export function lastMoveSquares(
 ): { from: string; to: string } | null {
   if (ply < 0 || ply >= game.moves.length) return null;
   const move = game.moves[ply];
+  if (!move.from || !move.to) return null;
   return { from: move.from, to: move.to };
 }
