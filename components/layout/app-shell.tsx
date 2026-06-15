@@ -1,11 +1,12 @@
 import * as React from "react";
 import { Sidebar } from "./sidebar";
+import { getCurrentUser } from "@/lib/auth/session";
 
 /**
  * Top-level page chrome: persistent sidebar + scrollable content area.
  * `title` / `description` render a compact page header above the content.
  */
-export function AppShell({
+export async function AppShell({
   title,
   description,
   actions,
@@ -16,9 +17,11 @@ export function AppShell({
   actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const user = await getCurrentUser();
+
   return (
     <div className="flex min-h-screen bg-black text-zinc-100">
-      <Sidebar />
+      <Sidebar user={user} />
       <div className="flex min-w-0 flex-1 flex-col">
         {title ? (
           <header className="flex h-14 items-center justify-between border-b border-zinc-800 px-6">

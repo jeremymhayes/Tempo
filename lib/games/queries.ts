@@ -14,6 +14,7 @@ const MOVE_ORDER = [
 
 type GameWithMoveCount = {
   id: string;
+  userId: string | null;
   whiteName: string | null;
   blackName: string | null;
   result: string | null;
@@ -26,6 +27,7 @@ type GameWithMoveCount = {
 
 type GameWithMoves = {
   id: string;
+  userId: string | null;
   pgn: string;
   whiteName: string | null;
   blackName: string | null;
@@ -63,6 +65,7 @@ function toMoveDto(move: GameWithMoves["moves"][number]): SavedMoveDto {
 export function toListGameDto(game: GameWithMoveCount): ListGameDto {
   return {
     id: game.id,
+    userId: game.userId,
     whiteName: game.whiteName,
     blackName: game.blackName,
     result: game.result,
@@ -77,6 +80,7 @@ export function toListGameDto(game: GameWithMoveCount): ListGameDto {
 export function toSavedGameDetailDto(game: GameWithMoves): SavedGameDetailDto {
   return {
     id: game.id,
+    userId: game.userId,
     pgn: game.pgn,
     whiteName: game.whiteName,
     blackName: game.blackName,
@@ -90,12 +94,14 @@ export function toSavedGameDetailDto(game: GameWithMoves): SavedGameDetailDto {
   };
 }
 
-export async function listGameSummaries(): Promise<ListGameDto[]> {
+export async function listGameSummaries(userId: string): Promise<ListGameDto[]> {
   const prisma = getPrisma();
   const games = await prisma.game.findMany({
+    where: { userId },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
+      userId: true,
       whiteName: true,
       blackName: true,
       result: true,
@@ -114,10 +120,11 @@ export async function listGameSummaries(): Promise<ListGameDto[]> {
 
 export async function getGameDetail(
   id: string,
+  userId: string,
 ): Promise<SavedGameDetailDto | null> {
   const prisma = getPrisma();
-  const game = await prisma.game.findUnique({
-    where: { id },
+  const game = await prisma.game.findFirst({
+    where: { id, userId },
     include: {
       moves: {
         orderBy: MOVE_ORDER,
@@ -130,10 +137,12 @@ export async function getGameDetail(
 
 export async function createGame(
   parsedGame: StoredGameRecord,
+  userId: string,
 ): Promise<SavedGameDetailDto> {
   const prisma = getPrisma();
   const game = await prisma.game.create({
     data: {
+      userId,
       pgn: parsedGame.pgn,
       whiteName: parsedGame.whiteName,
       blackName: parsedGame.blackName,

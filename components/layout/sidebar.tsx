@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, Home, ListChecks, Settings } from "lucide-react";
+import { Crown, Home, ListChecks, Settings, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { AuthUser } from "@/lib/auth/session";
+import { LogoutButton } from "@/components/auth/logout-button";
 
 const NAV = [
   { href: "/", label: "Import", icon: Home },
@@ -12,7 +14,7 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({ user }: { user: AuthUser | null }) {
   const pathname = usePathname();
 
   return (
@@ -45,9 +47,30 @@ export function Sidebar() {
         })}
       </nav>
       <div className="mt-auto border-t border-zinc-800 p-3">
-        <p className="text-[11px] leading-relaxed text-zinc-600">
-          Free chess game reviewer. Local analysis, no account required.
-        </p>
+        {user ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex min-w-0 items-center gap-2 px-2 text-xs text-zinc-500">
+              <UserRound className="size-4 shrink-0" />
+              <span className="truncate">{user.email}</span>
+            </div>
+            <LogoutButton />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/sign-in"
+              className="rounded-md px-2 py-1.5 text-sm text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-zinc-100"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/sign-up"
+              className="rounded-md px-2 py-1.5 text-sm text-zinc-500 transition-colors hover:bg-zinc-900 hover:text-zinc-200"
+            >
+              Create account
+            </Link>
+          </div>
+        )}
       </div>
     </aside>
   );

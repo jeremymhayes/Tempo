@@ -1,14 +1,21 @@
+import { redirect } from "next/navigation";
 import { Crown } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { GamesTable } from "@/components/games/games-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toSavedGameSummary } from "@/lib/api/games";
 import { listGameSummaries } from "@/lib/games/queries";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export default async function GamesPage() {
-  const games = (await listGameSummaries()).map(toSavedGameSummary);
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/sign-in?redirectTo=/games");
+  }
+
+  const games = (await listGameSummaries(user.id)).map(toSavedGameSummary);
 
   return (
     <AppShell title="Past Games" description="Games you've saved to revisit">

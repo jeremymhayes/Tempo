@@ -13,6 +13,7 @@ export type SavedMoveDto = {
 
 export type ListGameDto = {
   id: string;
+  userId: string | null;
   whiteName: string | null;
   blackName: string | null;
   result: string | null;
@@ -25,6 +26,7 @@ export type ListGameDto = {
 
 export type SavedGameDetailDto = {
   id: string;
+  userId: string | null;
   pgn: string;
   whiteName: string | null;
   blackName: string | null;

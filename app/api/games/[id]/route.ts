@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGameDetail } from "@/lib/games/queries";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
@@ -14,7 +15,12 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const game = await getGameDetail(id);
+    const user = await getCurrentUser();
+    if (!user) {
+      return jsonError("Authentication required", 401);
+    }
+
+    const game = await getGameDetail(id, user.id);
     if (!game) {
       return jsonError("Game not found", 404);
     }

@@ -6,8 +6,36 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  games    Game[]
+  sessions Session[]
+}
+
+model Session {
+  tokenHash String @id
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
 model Game {
   id        String   @id @default(cuid())
+
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   pgn       String
   whiteName String?
@@ -21,6 +49,8 @@ model Game {
   updatedAt DateTime @updatedAt
 
   moves     Move[]
+
+  @@index([userId])
 }
 
 model Move {

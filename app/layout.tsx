@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Free Chess Game Reviewer",
-  description: "Paste a PGN and step through any chess game. Free, no account required.",
+  description: "Paste a PGN, save it privately, and step through any chess game.",
 };
 
 export default function RootLayout({

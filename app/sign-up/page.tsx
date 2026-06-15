@@ -1,19 +1,19 @@
 import { redirect } from "next/navigation";
+import { AuthForm } from "@/components/auth/auth-form";
 import { AppShell } from "@/components/layout/app-shell";
-import { ReviewClient } from "@/components/review/review-client";
 import { getCurrentUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReviewPage() {
+export default async function SignUpPage() {
   const user = await getCurrentUser();
-  if (!user) {
-    redirect("/sign-in?redirectTo=/review");
+  if (user) {
+    redirect("/");
   }
 
   return (
-    <AppShell title="Review" description="Step through the loaded game">
-      <ReviewClient />
+    <AppShell title="Create Account" description="Keep your reviewed games private">
+      <AuthForm mode="sign-up" />
     </AppShell>
   );
 }
