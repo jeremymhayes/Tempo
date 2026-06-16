@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
 
 const TOKEN_BYTES = 32;
@@ -126,7 +127,7 @@ export async function verifyEmailToken(
     return { ok: false, status: "expired" };
   }
 
-  const user = await prisma.$transaction(async (tx) => {
+  const user = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const verifiedUser = token.user.emailVerifiedAt
       ? token.user
       : await tx.user.update({
