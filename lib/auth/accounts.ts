@@ -9,7 +9,7 @@ const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 200;
 
 export type AuthResult =
-  | { ok: true; user: { id: string; email: string } }
+  | { ok: true; user: { id: string; email: string; emailVerifiedAt: Date | null } }
   | { ok: false; error: string; status: number };
 
 function validatePassword(password: unknown): string | null {
@@ -51,6 +51,7 @@ export async function createAccount(
       select: {
         id: true,
         email: true,
+        emailVerifiedAt: true,
       },
     });
 
@@ -91,6 +92,7 @@ export async function authenticateAccount(
     select: {
       id: true,
       email: true,
+      emailVerifiedAt: true,
       passwordHash: true,
     },
   });
@@ -99,5 +101,12 @@ export async function authenticateAccount(
     return { ok: false, error: "Invalid email or password.", status: 401 };
   }
 
-  return { ok: true, user: { id: user.id, email: user.email } };
+  return {
+    ok: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      emailVerifiedAt: user.emailVerifiedAt,
+    },
+  };
 }

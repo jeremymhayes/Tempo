@@ -2,6 +2,24 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+Create a `.env` file with the local database and email settings:
+
+```env
+DATABASE_URL="postgresql://tempo_user:tempo_password@localhost:5433/tempo_db?schema=public"
+APP_URL="http://localhost:3000"
+RESEND_API_KEY="re_your_api_key_here"
+```
+
+On the mini PC, use the live URL instead:
+
+```env
+APP_URL="https://chess.jeremymhayes.com"
+AUTH_COOKIE_SECURE="true"
+RESEND_API_KEY="re_your_api_key_here"
+```
+
+`EMAIL_FROM` is optional. If it is not set, Tempo uses Resend's onboarding sender for testing.
+
 First, run the development server:
 
 ```bash

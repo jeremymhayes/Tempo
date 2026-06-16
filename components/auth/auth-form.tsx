@@ -51,6 +51,22 @@ export function AuthForm({
         );
       }
 
+      const body = (await response.json().catch(() => ({}))) as {
+        requiresEmailVerification?: unknown;
+        verificationEmailSent?: unknown;
+      };
+
+      if (body.requiresEmailVerification === true) {
+        const query = isSignUp
+          ? body.verificationEmailSent === true
+            ? "?sent=1"
+            : "?status=send-failed"
+          : `?redirectTo=${encodeURIComponent(redirectTo)}`;
+        router.push(`/verify-email${query}`);
+        router.refresh();
+        return;
+      }
+
       router.push(redirectTo);
       router.refresh();
     } catch (err) {

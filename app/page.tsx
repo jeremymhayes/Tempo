@@ -1,16 +1,12 @@
-import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { PgnInput } from "@/components/chess/pgn-input";
 import { RecentGames } from "@/components/games/recent-games";
-import { getCurrentUser } from "@/lib/auth/session";
+import { requireVerifiedUser } from "@/lib/auth/guards";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect("/sign-in");
-  }
+  await requireVerifiedUser("/");
 
   return (
     <AppShell title="Import Game" description="Paste or upload a PGN to review">

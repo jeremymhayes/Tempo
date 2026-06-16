@@ -53,6 +53,14 @@ export function Sidebar({ user }: { user: AuthUser | null }) {
               <UserRound className="size-4 shrink-0" />
               <span className="truncate">{user.email}</span>
             </div>
+            {!user.emailVerifiedAt ? (
+              <Link
+                href="/verify-email"
+                className="rounded-md px-2 py-1 text-xs text-amber-300 transition-colors hover:bg-zinc-900"
+              >
+                Verify email
+              </Link>
+            ) : null}
             <LogoutButton />
           </div>
         ) : (

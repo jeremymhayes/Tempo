@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAccount } from "@/lib/auth/accounts";
 import { createSession, setSessionCookie } from "@/lib/auth/session";
+import { sendVerificationEmailForUser } from "@/lib/email/verification-email";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,18 @@ export async function POST(request: NextRequest) {
     return jsonError(result.error, result.status);
   }
 
-  const response = NextResponse.json({ user: result.user }, { status: 201 });
+  const verificationEmail = await sendVerificationEmailForUser(result.user.id);
+  const response = NextResponse.json(
+    {
+      user: result.user,
+      requiresEmailVerification: true,
+      verificationEmailSent: verificationEmail.ok && verificationEmail.sent,
+      verificationEmailError: verificationEmail.ok
+        ? null
+        : verificationEmail.error,
+    },
+    { status: 201 },
+  );
   setSessionCookie(response, await createSession(result.user.id));
 
   return response;

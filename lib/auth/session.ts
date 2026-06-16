@@ -10,6 +10,7 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export type AuthUser = {
   id: string;
   email: string;
+  emailVerifiedAt: Date | null;
 };
 
 export function getSessionCookieOptions(expires: Date) {
@@ -53,6 +54,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
         select: {
           id: true,
           email: true,
+          emailVerifiedAt: true,
         },
       },
     },

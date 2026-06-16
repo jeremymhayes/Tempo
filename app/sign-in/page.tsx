@@ -10,16 +10,23 @@ export default async function SignInPage({
 }: {
   searchParams: Promise<{ redirectTo?: string }>;
 }) {
+  const { redirectTo } = await searchParams;
+  const target =
+    redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+      ? redirectTo
+      : "/";
   const user = await getCurrentUser();
   if (user) {
-    redirect("/");
+    redirect(
+      user.emailVerifiedAt
+        ? target
+        : `/verify-email?redirectTo=${encodeURIComponent(target)}`,
+    );
   }
-
-  const { redirectTo } = await searchParams;
 
   return (
     <AppShell title="Sign In" description="Access your saved game reviews">
-      <AuthForm mode="sign-in" redirectTo={redirectTo || "/"} />
+      <AuthForm mode="sign-in" redirectTo={target} />
     </AppShell>
   );
 }

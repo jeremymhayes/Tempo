@@ -19,6 +19,9 @@ export async function GET(
     if (!user) {
       return jsonError("Authentication required", 401);
     }
+    if (!user.emailVerifiedAt) {
+      return jsonError("Email verification required", 403);
+    }
 
     const game = await getGameDetail(id, user.id);
     if (!game) {

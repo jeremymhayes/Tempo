@@ -15,6 +15,9 @@ export async function GET() {
     if (!user) {
       return jsonError("Authentication required", 401);
     }
+    if (!user.emailVerifiedAt) {
+      return jsonError("Email verification required", 403);
+    }
 
     return NextResponse.json(await listGameSummaries(user.id));
   } catch (error) {
@@ -29,6 +32,9 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser();
     if (!user) {
       return jsonError("Authentication required", 401);
+    }
+    if (!user.emailVerifiedAt) {
+      return jsonError("Email verification required", 403);
     }
 
     let body: unknown;

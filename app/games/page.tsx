@@ -1,19 +1,15 @@
-import { redirect } from "next/navigation";
 import { Crown } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { GamesTable } from "@/components/games/games-table";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toSavedGameSummary } from "@/lib/api/games";
 import { listGameSummaries } from "@/lib/games/queries";
-import { getCurrentUser } from "@/lib/auth/session";
+import { requireVerifiedUser } from "@/lib/auth/guards";
 
 export const dynamic = "force-dynamic";
 
 export default async function GamesPage() {
-  const user = await getCurrentUser();
-  if (!user) {
-    redirect("/sign-in?redirectTo=/games");
-  }
+  const user = await requireVerifiedUser("/games");
 
   const games = (await listGameSummaries(user.id)).map(toSavedGameSummary);
 

@@ -30,7 +30,10 @@ export async function POST(request: NextRequest) {
     return jsonError(result.error, result.status);
   }
 
-  const response = NextResponse.json({ user: result.user });
+  const response = NextResponse.json({
+    user: result.user,
+    requiresEmailVerification: !result.user.emailVerifiedAt,
+  });
   setSessionCookie(response, await createSession(result.user.id));
 
   return response;
