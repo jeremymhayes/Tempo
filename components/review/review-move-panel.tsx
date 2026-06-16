@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import type { WhiteScore } from "@/lib/engine/eval-format";
 import { CLASS_META } from "@/lib/review/classification-meta";
@@ -28,15 +27,18 @@ function MoveCell({
 
   const meta = move.classification ? CLASS_META[move.classification] : null;
   const showIcon = shouldShowMoveIcon(move.classification);
+  const side = move.color === "w" ? "White" : "Black";
+  const classification = meta ? `, ${meta.label}` : "";
 
   return (
     <button
       type="button"
       onClick={() => onSelect(move.ply)}
+      aria-label={`${side} move ${move.moveNumber}, ${move.san}${classification}`}
       aria-current={active ? "step" : undefined}
       data-active={active}
       className={cn(
-        "grid grid-cols-[minmax(0,1fr)_24px] items-center border-b border-zinc-800 px-2 py-1.5 text-left font-mono text-sm hover:bg-zinc-900",
+        "grid min-w-0 grid-cols-[minmax(0,1fr)_24px] items-center border-b border-zinc-800 px-2 py-1.5 text-left font-mono text-sm hover:bg-zinc-900",
         active
           ? "bg-zinc-100 font-semibold text-zinc-950 hover:bg-zinc-100"
           : "text-zinc-300",
@@ -45,6 +47,7 @@ function MoveCell({
       <span className="truncate">{move.san}</span>
       {showIcon && meta ? (
         <span
+          aria-hidden="true"
           className="text-right text-[11px] font-black"
           style={{ color: active ? "#111111" : meta.hex }}
         >
@@ -76,12 +79,7 @@ export function ReviewMovePanel({
     const el = container?.querySelector<HTMLElement>("[data-active='true']");
     if (!container || !el) return;
 
-    const elTop = el.offsetTop;
-    const elBottom = elTop + el.offsetHeight;
-    if (elTop < container.scrollTop) container.scrollTop = elTop;
-    else if (elBottom > container.scrollTop + container.clientHeight) {
-      container.scrollTop = elBottom - container.clientHeight;
-    }
+    el.scrollIntoView({ block: "nearest" });
   }, [currentPly]);
 
   return (
@@ -100,29 +98,27 @@ export function ReviewMovePanel({
 
       <Separator />
 
-      <ScrollArea className="min-h-0 flex-1">
-        <div ref={listRef} className="max-h-full overflow-y-auto px-5 py-4">
-          <div className="grid grid-cols-[42px_1fr_1fr] border border-zinc-800 bg-zinc-950">
-            {pairs.map((pair) => (
-              <div key={pair.moveNumber} className="contents">
-                <span className="border-b border-zinc-800 px-2 py-1.5 text-right font-mono text-xs text-zinc-600">
-                  {pair.moveNumber}.
-                </span>
-                <MoveCell
-                  move={pair.white}
-                  active={pair.white?.ply === currentPly}
-                  onSelect={onSelect}
-                />
-                <MoveCell
-                  move={pair.black}
-                  active={pair.black?.ply === currentPly}
-                  onSelect={onSelect}
-                />
-              </div>
-            ))}
-          </div>
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <div className="grid grid-cols-[42px_minmax(0,1fr)_minmax(0,1fr)] border border-zinc-800 bg-zinc-950">
+          {pairs.map((pair) => (
+            <div key={pair.moveNumber} className="contents">
+              <span className="border-b border-zinc-800 px-2 py-1.5 text-right font-mono text-xs text-zinc-600">
+                {pair.moveNumber}.
+              </span>
+              <MoveCell
+                move={pair.white}
+                active={pair.white?.ply === currentPly}
+                onSelect={onSelect}
+              />
+              <MoveCell
+                move={pair.black}
+                active={pair.black?.ply === currentPly}
+                onSelect={onSelect}
+              />
+            </div>
+          ))}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }

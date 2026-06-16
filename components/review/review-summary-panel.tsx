@@ -45,7 +45,7 @@ export function ReviewSummaryPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
         <div className="grid grid-cols-[1fr_1fr] gap-4">
-          <div>
+          <div className="min-w-0">
             <p className="truncate text-xs font-medium text-zinc-500">
               {whiteName}
             </p>
@@ -56,7 +56,7 @@ export function ReviewSummaryPanel({
               Elo {formatRating(stats.rating.white)}
             </p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="truncate text-xs font-medium text-zinc-500">
               {blackName}
             </p>
