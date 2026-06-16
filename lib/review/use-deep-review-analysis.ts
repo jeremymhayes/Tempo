@@ -34,6 +34,8 @@ export type DeepReviewAnalysisState = {
   moves: ReviewedMove[];
   error: string | null;
   source: ReviewAnalysisSource;
+  startedAtMs: number | null;
+  updatedAtMs: number | null;
 };
 
 const INITIAL_STATE: DeepReviewAnalysisState = {
@@ -45,6 +47,8 @@ const INITIAL_STATE: DeepReviewAnalysisState = {
   moves: [],
   error: null,
   source: null,
+  startedAtMs: null,
+  updatedAtMs: null,
 };
 
 export function useDeepReviewAnalysis(game: ParsedGame | null) {
@@ -63,15 +67,34 @@ export function useDeepReviewAnalysis(game: ParsedGame | null) {
     const positions = getReviewPositions(targetGame);
 
     async function run() {
+      const serverStartedAtMs = Date.now();
       setState({
         ...INITIAL_STATE,
         status: "loading-server",
         total: positions.length,
         source: "server",
+        startedAtMs: serverStartedAtMs,
+        updatedAtMs: serverStartedAtMs,
       });
 
       try {
-        const serverResult = await analyzeGameOnServer(targetGame);
+        const serverResult = await analyzeGameOnServer(targetGame, {
+          onProgress: ({ current, total, evalByPly, analysisByPly }) => {
+            if (cancelled) return;
+            const updatedAtMs = Date.now();
+            setState((prev) => ({
+              ...prev,
+              status: "loading-server",
+              current,
+              total,
+              evalByPly,
+              analysisByPly,
+              source: "server",
+              startedAtMs: prev.startedAtMs ?? serverStartedAtMs,
+              updatedAtMs,
+            }));
+          },
+        });
         if (cancelled) return;
 
         setState({
@@ -83,6 +106,8 @@ export function useDeepReviewAnalysis(game: ParsedGame | null) {
           moves: serverResult.moves,
           error: null,
           source: "server",
+          startedAtMs: serverStartedAtMs,
+          updatedAtMs: Date.now(),
         });
         return;
       } catch (serverError) {
@@ -94,11 +119,14 @@ export function useDeepReviewAnalysis(game: ParsedGame | null) {
       }
 
       try {
+        const browserStartedAtMs = Date.now();
         setState({
           ...INITIAL_STATE,
           status: "loading-engine",
           total: positions.length,
           source: "browser",
+          startedAtMs: browserStartedAtMs,
+          updatedAtMs: browserStartedAtMs,
         });
 
         engine = createEngine("stockfish");
@@ -111,6 +139,7 @@ export function useDeepReviewAnalysis(game: ParsedGame | null) {
           analyzeOptions: defaultReviewAnalyzeOptions(),
           onProgress: ({ current, total, evalByPly, analysisByPly }) => {
             if (cancelled) return;
+            const updatedAtMs = Date.now();
             setState((prev) => ({
               ...prev,
               status: "analyzing",
@@ -119,6 +148,8 @@ export function useDeepReviewAnalysis(game: ParsedGame | null) {
               evalByPly,
               analysisByPly,
               source: "browser",
+              startedAtMs: prev.startedAtMs ?? browserStartedAtMs,
+              updatedAtMs,
             }));
           },
         });
@@ -133,6 +164,8 @@ export function useDeepReviewAnalysis(game: ParsedGame | null) {
           moves: browserResult.moves,
           error: null,
           source: "browser",
+          startedAtMs: browserStartedAtMs,
+          updatedAtMs: Date.now(),
         });
       } catch (error) {
         if (cancelled) return;
@@ -145,6 +178,8 @@ export function useDeepReviewAnalysis(game: ParsedGame | null) {
               ? error.message
               : "Stockfish analysis failed.",
           source: "browser",
+          startedAtMs: null,
+          updatedAtMs: null,
         });
       }
     }

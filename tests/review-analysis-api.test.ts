@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 import { analyzeGameOnServer } from "@/lib/api/review-analysis";
-import type { ReviewAnalysisResult } from "@/lib/review/engine-analysis";
+import type {
+  ReviewAnalysisProgress,
+  ReviewAnalysisResult,
+} from "@/lib/review/engine-analysis";
 import type { ParsedGame } from "@/types/chess";
 
 const originalFetch = globalThis.fetch;
@@ -33,6 +36,34 @@ function createAnalysisResult(): ReviewAnalysisResult {
     analysisByPly: {},
     moves: [],
   };
+}
+
+function createProgress(current: number, total = 2): ReviewAnalysisProgress {
+  return {
+    current,
+    total,
+    evalByPly: {},
+    analysisByPly: {},
+  };
+}
+
+function createStreamResponse(lines: string[]): Response {
+  const encoder = new TextEncoder();
+  return new Response(
+    new ReadableStream({
+      start(controller) {
+        for (const line of lines) {
+          controller.enqueue(encoder.encode(`${line}\n`));
+        }
+        controller.close();
+      },
+    }),
+    {
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+      },
+    },
+  );
 }
 
 describe("review analysis API client", () => {
@@ -72,5 +103,27 @@ describe("review analysis API client", () => {
     assert.deepEqual(await analyzeGameOnServer(game), result);
     assert.deepEqual(await analyzeGameOnServer(game), result);
     assert.equal(fetchCount, 2);
+  });
+
+  it("reports streamed server progress before returning the final result", async () => {
+    const result = createAnalysisResult();
+    const progress: number[] = [];
+
+    globalThis.fetch = async () =>
+      createStreamResponse([
+        JSON.stringify({ type: "progress", progress: createProgress(1) }),
+        JSON.stringify({ type: "progress", progress: createProgress(2) }),
+        JSON.stringify({ type: "complete", result }),
+      ]);
+
+    assert.deepEqual(
+      await analyzeGameOnServer(createGame("1. d4 *"), {
+        onProgress(update) {
+          progress.push(update.current);
+        },
+      }),
+      result,
+    );
+    assert.deepEqual(progress, [1, 2]);
   });
 });

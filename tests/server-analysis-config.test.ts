@@ -46,6 +46,17 @@ describe("server analysis configuration", () => {
     assert.equal(config.maxConcurrent, 4);
     assert.equal(config.stockfishFlavor, "single");
   });
+
+  it("uses a stronger depth by default for server analysis", () => {
+    const config = getServerAnalysisConfig({
+      TEMPO_SERVER_ANALYSIS_ENABLED: "true",
+    });
+
+    assert.equal(config.analyzeOptions.depth, 20);
+    assert.equal(config.analyzeOptions.multiPV, 3);
+    assert.equal(config.analyzeOptions.skill, 20);
+    assert.equal(config.stockfishFlavor, "single");
+  });
 });
 
 describe("server analysis request body", () => {

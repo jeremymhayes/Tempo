@@ -51,6 +51,11 @@ import {
 } from "@/lib/review/snapshot";
 import { shouldShowBestMoveHint } from "@/lib/review/best-move-hint";
 import { buildEngineReviewedMoves } from "@/lib/review/deep-analysis";
+import {
+  estimateRemainingSeconds,
+  formatAnalysisEta,
+  progressPercent,
+} from "@/lib/review/analysis-progress";
 import { useDeepReviewAnalysis } from "@/lib/review/use-deep-review-analysis";
 import { AnalysisBoard } from "@/components/chess/analysis-board";
 import { EvaluationBar } from "./evaluation-bar";
@@ -310,18 +315,41 @@ export function ReviewClient({
   }
 
   if (deepReview.status !== "ready") {
+    const percent = progressPercent(deepReview.current, deepReview.total);
+    const eta = formatAnalysisEta(
+      estimateRemainingSeconds({
+        current: deepReview.current,
+        total: deepReview.total,
+        startedAtMs: deepReview.startedAtMs,
+        nowMs: deepReview.updatedAtMs ?? deepReview.startedAtMs ?? 0,
+      }),
+    );
+    const sourceLabel =
+      deepReview.source === "server"
+        ? "Server Stockfish"
+        : deepReview.source === "browser"
+          ? "Browser fallback"
+          : "Stockfish";
+
     return (
       <ReviewShell>
         <div className="flex h-full items-center justify-center bg-[#111111] px-6 text-zinc-100">
-          <div className="w-full max-w-md border border-zinc-800 bg-zinc-950 p-6">
-            <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
-              Stockfish Review
-            </p>
-            <h1 className="mt-2 text-lg font-bold text-zinc-100">
-              {deepReview.status === "error"
-                ? "Analysis failed"
-                : "Analyzing the full game"}
-            </h1>
+          <div className="w-full max-w-lg border border-zinc-800 bg-zinc-950 p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
+                  Stockfish Review
+                </p>
+                <h1 className="mt-2 text-lg font-bold text-zinc-100">
+                  {deepReview.status === "error"
+                    ? "Analysis failed"
+                    : "Analyzing the full game"}
+                </h1>
+              </div>
+              <span className="shrink-0 border border-zinc-700 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-zinc-300">
+                {sourceLabel}
+              </span>
+            </div>
             {deepReview.status === "error" ? (
               <p className="mt-3 text-sm leading-relaxed text-red-300">
                 {deepReview.error ?? "Stockfish could not finish this review."}
@@ -330,23 +358,33 @@ export function ReviewClient({
               <>
                 <p className="mt-3 text-sm leading-relaxed text-zinc-400">
                   {deepReview.source === "server"
-                    ? "Your Tempo server is evaluating every position with Stockfish before showing classifications."
+                    ? "Your Tempo server is evaluating every position with Stockfish and streaming progress back to this screen."
                     : "Tempo is using the browser Stockfish fallback to evaluate every position before showing classifications."}
                 </p>
+                <div className="mt-6 flex items-end justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-5xl font-black leading-none text-zinc-100">
+                      {percent}%
+                    </p>
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                      {deepReview.current} / {deepReview.total} positions
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
+                      ETA
+                    </p>
+                    <p className="mt-1 font-mono text-lg font-bold text-zinc-100">
+                      {eta}
+                    </p>
+                  </div>
+                </div>
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-zinc-800">
                   <div
                     className="h-full bg-zinc-100 transition-[width]"
-                    style={{
-                      width:
-                        deepReview.total > 0
-                          ? `${Math.round((deepReview.current / deepReview.total) * 100)}%`
-                          : "0%",
-                    }}
+                    style={{ width: `${percent}%` }}
                   />
                 </div>
-                <p className="mt-2 text-xs font-semibold text-zinc-500">
-                  {deepReview.current} / {deepReview.total} positions
-                </p>
               </>
             )}
           </div>

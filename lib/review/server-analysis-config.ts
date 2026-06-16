@@ -1,6 +1,5 @@
 import type { AnalyzeOptions } from "@/lib/engine/types";
 import {
-  REVIEW_ENGINE_DEPTH,
   REVIEW_ENGINE_MULTI_PV,
   REVIEW_ENGINE_SKILL,
 } from "@/lib/review/deep-analysis";
@@ -19,7 +18,8 @@ export type ServerAnalysisConfig = {
 const DEFAULT_MAX_MOVES = 200;
 const DEFAULT_MAX_PGN_LENGTH = 200_000;
 const DEFAULT_MAX_CONCURRENT = 1;
-const DEFAULT_STOCKFISH_FLAVOR = "lite-single";
+const DEFAULT_SERVER_ANALYSIS_DEPTH = 20;
+const DEFAULT_STOCKFISH_FLAVOR = "single";
 
 export function isServerAnalysisEnabled(env: ServerAnalysisEnv): boolean {
   const value = env.TEMPO_SERVER_ANALYSIS_ENABLED?.trim().toLowerCase();
@@ -34,7 +34,7 @@ export function getServerAnalysisConfig(
     analyzeOptions: {
       depth: readInt(
         env.TEMPO_SERVER_ANALYSIS_DEPTH,
-        REVIEW_ENGINE_DEPTH,
+        DEFAULT_SERVER_ANALYSIS_DEPTH,
         1,
         40,
       ),
