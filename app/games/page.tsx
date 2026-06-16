@@ -14,7 +14,7 @@ export default async function GamesPage() {
   const games = (await listGameSummaries(user.id)).map(toSavedGameSummary);
 
   return (
-    <AppShell title="Past Games" description="Games you've saved to revisit">
+    <AppShell title="Saved Games" description="Games you've saved to revisit">
       {games.length === 0 ? (
         <EmptyState
           icon={<Crown className="size-8" />}

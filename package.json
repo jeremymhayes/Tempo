@@ -1,11 +1,11 @@
 {
-  "name": "chess-reviewer",
+  "name": "tempo",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "test": "node --import tsx --test tests/pgn-record.test.ts tests/auth.test.ts tests/email-verification.test.ts",
+    "test": "node --import tsx --test tests/pgn-record.test.ts tests/auth.test.ts tests/email-verification.test.ts tests/guest-review.test.ts",
     "start": "next start",
     "lint": "eslint"
   },

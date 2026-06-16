@@ -56,7 +56,7 @@ export function RecentGames() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent Games</CardTitle>
+        <CardTitle>Recent Saved Games</CardTitle>
         <Button
           variant="ghost"
           size="icon"

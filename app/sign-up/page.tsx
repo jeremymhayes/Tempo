@@ -12,7 +12,7 @@ export default async function SignUpPage() {
   }
 
   return (
-    <AppShell title="Create Account" description="Keep your reviewed games private">
+    <AppShell title="Create Account" description="Save games privately in Tempo">
       <AuthForm mode="sign-up" />
     </AppShell>
   );

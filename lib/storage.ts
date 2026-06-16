@@ -11,7 +11,7 @@ import type { ParsedGame } from "@/types/chess";
  * a backend can persist and return saved games.
  */
 
-const CURRENT_GAME_KEY = "chess-reviewer:current-game";
+const CURRENT_GAME_KEY = "tempo:current-game";
 
 export function saveCurrentGame(game: ParsedGame): void {
   if (typeof window === "undefined") return;

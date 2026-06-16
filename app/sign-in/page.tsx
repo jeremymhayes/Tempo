@@ -25,7 +25,7 @@ export default async function SignInPage({
   }
 
   return (
-    <AppShell title="Sign In" description="Access your saved game reviews">
+    <AppShell title="Sign In" description="Save games and build your Tempo history">
       <AuthForm mode="sign-in" redirectTo={target} />
     </AppShell>
   );

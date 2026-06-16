@@ -1,4 +1,7 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Tempo
+
+Tempo is a Next.js chess game reviewer. Guests can review PGNs locally, and
+verified accounts can save games privately.
 
 ## Getting Started
 

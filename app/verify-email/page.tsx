@@ -17,6 +17,13 @@ function safeRedirectTo(value: string | undefined): string {
 }
 
 function statusMessage(status: string | undefined, sent: string | undefined) {
+  if (status === "verified") {
+    return {
+      tone: "success" as const,
+      text: "Congrats you are now verified.",
+    };
+  }
+
   if (status === "expired") {
     return {
       tone: "error" as const,
@@ -66,7 +73,7 @@ export default async function VerifyEmailPage({
   ]);
   const target = safeRedirectTo(redirectTo);
 
-  if (user?.emailVerifiedAt) {
+  if (user?.emailVerifiedAt && status !== "verified") {
     redirect(target);
   }
 
@@ -87,7 +94,11 @@ export default async function VerifyEmailPage({
             )}
             <div>
               <p className="text-sm text-zinc-100">{message.text}</p>
-              {user ? (
+              {status === "verified" ? (
+                <p className="mt-1 text-sm text-zinc-500">
+                  You can now save games to your Tempo account.
+                </p>
+              ) : user ? (
                 <p className="mt-1 text-sm text-zinc-500">
                   Signed in as{" "}
                   <span className="text-zinc-300">{user.email}</span>.
@@ -100,7 +111,14 @@ export default async function VerifyEmailPage({
             </div>
           </div>
 
-          {user ? (
+          {status === "verified" ? (
+            <Link
+              href={target}
+              className="inline-flex h-9 items-center self-start rounded-md bg-zinc-100 px-4 text-sm font-medium text-zinc-900 transition-colors hover:bg-white"
+            >
+              Continue to Tempo
+            </Link>
+          ) : user ? (
             <ResendVerificationButton />
           ) : (
             <div className="flex gap-2">

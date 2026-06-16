@@ -6,19 +6,36 @@ import { Upload, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { saveGamePgn, toParsedGame } from "@/lib/api/games";
+import { parsePgnForReview } from "@/lib/chess/pgn-review";
 import { saveCurrentGame } from "@/lib/storage";
 import { SAMPLE_PGN } from "@/lib/chess/sample-game";
 
-export function PgnInput() {
+export function PgnInput({ canSave }: { canSave: boolean }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [pgn, setPgn] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [busyAction, setBusyAction] = useState<"review" | "save" | null>(null);
 
-  async function review(text: string) {
+  function reviewAsGuest(text: string) {
     setError(null);
-    setSaving(true);
+    setBusyAction("review");
+
+    const parsed = parsePgnForReview(text);
+    if (!parsed.ok) {
+      setError(parsed.error);
+      setBusyAction(null);
+      return;
+    }
+
+    saveCurrentGame(parsed.game);
+    router.push("/review");
+  }
+
+  async function saveAndReview(text: string) {
+    if (!canSave) return;
+    setError(null);
+    setBusyAction("save");
 
     try {
       const saved = await saveGamePgn(text);
@@ -27,7 +44,7 @@ export function PgnInput() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save that PGN.");
     } finally {
-      setSaving(false);
+      setBusyAction(null);
     }
   }
 
@@ -69,9 +86,21 @@ export function PgnInput() {
       ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={() => review(pgn)} disabled={!pgn.trim() || saving}>
-          {saving ? "Saving..." : "Save and Review"}
+        <Button
+          onClick={() => reviewAsGuest(pgn)}
+          disabled={!pgn.trim() || busyAction !== null}
+        >
+          {busyAction === "review" ? "Loading..." : "Review Game"}
         </Button>
+        {canSave ? (
+          <Button
+            variant="secondary"
+            onClick={() => void saveAndReview(pgn)}
+            disabled={!pgn.trim() || busyAction !== null}
+          >
+            {busyAction === "save" ? "Saving..." : "Save to Account"}
+          </Button>
+        ) : null}
         <Button variant="outline" onClick={() => fileRef.current?.click()}>
           <Upload className="size-4" />
           Upload .pgn
@@ -87,6 +116,12 @@ export function PgnInput() {
           onChange={onUpload}
         />
       </div>
+      {!canSave ? (
+        <p className="text-xs text-zinc-500">
+          Guest reviews stay in this browser session. Sign in with a verified
+          account to save games permanently.
+        </p>
+      ) : null}
     </div>
   );
 }

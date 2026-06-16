@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     return redirectTo(`/verify-email?status=${result.status}`);
   }
 
-  const response = redirectTo("/?verified=1");
+  const response = redirectTo("/verify-email?status=verified");
   setSessionCookie(response, await createSession(result.user.id));
 
   return response;

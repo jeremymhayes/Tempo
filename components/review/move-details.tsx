@@ -78,8 +78,8 @@ export function MoveDetails({ move }: { move: ReviewedMove | null }) {
               value={move.centipawnLoss ?? PLACEHOLDER}
             />
             <p className="mt-2 border-t border-zinc-800 pt-2 text-[11px] leading-relaxed text-zinc-600">
-              Engine analysis is not connected yet. These fields will populate
-              once Stockfish review is wired to the backend.
+              Starter review uses PGN patterns and basic tactical signals.
+              Stockfish-backed scoring can replace these provisional fields later.
             </p>
           </>
         )}

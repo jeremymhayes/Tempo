@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { FileX2 } from "lucide-react";
 import type { ParsedGame, PieceColor } from "@/types/chess";
 import type { ReviewedMove } from "@/types/review";
+import { createStarterReview } from "@/lib/review/starter-review";
 import { loadCurrentGame } from "@/lib/storage";
 import {
   START_PLY,
@@ -20,6 +21,7 @@ import { MoveList } from "./move-list";
 import { MoveControls } from "./move-controls";
 import { GameSummary } from "./game-summary";
 import { MoveDetails } from "./move-details";
+import { ReviewSummaryCard } from "./review-summary-card";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 
@@ -32,6 +34,9 @@ export function ReviewClient({
   const [game, setGame] = useState<ParsedGame | null>(initialGame ?? null);
   const [loaded, setLoaded] = useState(hasInitialGame);
   const [ply, setPly] = useState(START_PLY);
+  const review = useMemo(() => (game ? createStarterReview(game) : null), [game]);
+  const reviewedMoves = review?.moves ?? [];
+  const summary = review?.summary ?? null;
 
   // Read the game stashed by the import page (sessionStorage survives refresh).
   // Done in an effect, not lazy init, so server and client first render match
@@ -94,7 +99,7 @@ export function ReviewClient({
   const fen = fenAtPly(game, ply);
   const lastMove = lastMoveSquares(game, ply);
   const currentMove: ReviewedMove | null =
-    ply >= 0 ? { ...game.moves[ply] } : null;
+    ply >= 0 ? reviewedMoves[ply] ?? { ...game.moves[ply] } : null;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -120,11 +125,16 @@ export function ReviewClient({
       {/* Side panels */}
       <div className="flex flex-col gap-4">
         <GameSummary game={game} />
+        <ReviewSummaryCard summary={summary} />
         <Card>
           <CardHeader>
             <CardTitle>Moves</CardTitle>
           </CardHeader>
-          <MoveList moves={game.moves} currentPly={ply} onSelect={setPly} />
+          <MoveList
+            moves={reviewedMoves.length ? reviewedMoves : game.moves}
+            currentPly={ply}
+            onSelect={setPly}
+          />
         </Card>
         <MoveDetails move={currentMove} />
       </div>

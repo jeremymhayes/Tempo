@@ -2,15 +2,29 @@
 
 import { useEffect, useRef } from "react";
 import type { GameMove } from "@/types/chess";
+import type { MoveClassification } from "@/types/review";
 import { cn } from "@/lib/utils";
+
+type ReviewListMove = GameMove & { classification?: MoveClassification };
 
 interface MovePair {
   moveNumber: number;
-  white?: GameMove;
-  black?: GameMove;
+  white?: ReviewListMove;
+  black?: ReviewListMove;
 }
 
-function toPairs(moves: GameMove[]): MovePair[] {
+const CLASSIFICATION_SHORT: Record<MoveClassification, string> = {
+  brilliant: "!!",
+  great: "!",
+  best: "Best",
+  good: "Good",
+  book: "Book",
+  inaccuracy: "?!",
+  mistake: "?",
+  blunder: "??",
+};
+
+function toPairs(moves: ReviewListMove[]): MovePair[] {
   const pairs: MovePair[] = [];
   for (const move of moves) {
     const last = pairs[pairs.length - 1];
@@ -29,7 +43,7 @@ function MoveCell({
   active,
   onSelect,
 }: {
-  move?: GameMove;
+  move?: ReviewListMove;
   active: boolean;
   onSelect: (ply: number) => void;
 }) {
@@ -44,7 +58,12 @@ function MoveCell({
           : "text-zinc-300 hover:bg-zinc-800",
       )}
     >
-      {move.san}
+      <span>{move.san}</span>
+      {move.classification ? (
+        <span className="ml-1 text-[10px] uppercase text-zinc-500">
+          {CLASSIFICATION_SHORT[move.classification]}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -54,7 +73,7 @@ export function MoveList({
   currentPly,
   onSelect,
 }: {
-  moves: GameMove[];
+  moves: ReviewListMove[];
   currentPly: number;
   onSelect: (ply: number) => void;
 }) {

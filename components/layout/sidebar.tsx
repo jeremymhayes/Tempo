@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, Home, ListChecks, Settings, UserRound } from "lucide-react";
+import { Clock3, Crown, Home, ListChecks, Settings, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -10,7 +10,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 const NAV = [
   { href: "/", label: "Import", icon: Home },
   { href: "/review", label: "Review", icon: ListChecks },
-  { href: "/games", label: "Past Games", icon: Crown },
+  { href: "/games", label: "Saved Games", icon: Crown },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -20,9 +20,9 @@ export function Sidebar({ user }: { user: AuthUser | null }) {
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950">
       <div className="flex h-14 items-center gap-2 border-b border-zinc-800 px-4">
-        <Crown className="size-4 text-zinc-300" />
+        <Clock3 className="size-4 text-zinc-300" />
         <span className="text-sm font-semibold tracking-tight text-zinc-100">
-          Chess Reviewer
+          Tempo
         </span>
       </div>
       <nav className="flex flex-col gap-0.5 p-2">

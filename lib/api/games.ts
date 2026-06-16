@@ -1,6 +1,7 @@
 import { DEFAULT_POSITION } from "chess.js";
 import type { ParsedGame, PieceColor } from "@/types/chess";
 import type { ReviewSummary, ReviewedMove } from "@/types/review";
+import { createStarterReview } from "@/lib/review/starter-review";
 
 export type SavedMoveDto = {
   id: string;
@@ -181,5 +182,5 @@ export async function requestReview(game: ParsedGame): Promise<{
   moves: ReviewedMove[];
   summary: ReviewSummary | null;
 }> {
-  return { moves: game.moves.map((move) => ({ ...move })), summary: null };
+  return createStarterReview(game);
 }
