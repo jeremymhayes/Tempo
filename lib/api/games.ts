@@ -56,6 +56,13 @@ export type SavedGameDetailDto = {
   moves: SavedMoveDto[];
 };
 
+export type ImportedGameSourceDto = {
+  pgn: string;
+  provider: "pgn" | "lichess" | "chess.com";
+  sourceType: "pgn" | "url";
+  normalizedUrl?: string;
+};
+
 export interface SavedGameSummary {
   id: string;
   white: string;
@@ -201,6 +208,22 @@ export async function saveGamePgn(pgn: string): Promise<SavedGameDetailDto> {
   }
 
   return (await response.json()) as SavedGameDetailDto;
+}
+
+export async function importGameSource(
+  source: string,
+): Promise<ImportedGameSourceDto> {
+  const response = await fetch("/api/game-source", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return (await response.json()) as ImportedGameSourceDto;
 }
 
 export async function getSavedGame(id: string): Promise<SavedGameDetailDto> {

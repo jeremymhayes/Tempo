@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Upload, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { saveGamePgn, toParsedGame } from "@/lib/api/games";
+import { importGameSource, saveGamePgn, toParsedGame } from "@/lib/api/games";
 import { parsePgnForReview } from "@/lib/chess/pgn-review";
 import { saveCurrentGame } from "@/lib/storage";
 import { SAMPLE_PGN } from "@/lib/chess/sample-game";
@@ -17,19 +17,33 @@ export function PgnInput({ canSave }: { canSave: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<"review" | "save" | null>(null);
 
-  function reviewAsGuest(text: string) {
+  async function resolveInputPgn(text: string) {
+    const trimmed = text.trim();
+    if (/^https?:\/\//i.test(trimmed)) {
+      return (await importGameSource(trimmed)).pgn;
+    }
+    return text;
+  }
+
+  async function reviewAsGuest(text: string) {
     setError(null);
     setBusyAction("review");
 
-    const parsed = parsePgnForReview(text);
-    if (!parsed.ok) {
-      setError(parsed.error);
-      setBusyAction(null);
-      return;
-    }
+    try {
+      const pgn = await resolveInputPgn(text);
+      const parsed = parsePgnForReview(pgn);
+      if (!parsed.ok) {
+        setError(parsed.error);
+        setBusyAction(null);
+        return;
+      }
 
-    saveCurrentGame(parsed.game);
-    router.push("/review");
+      saveCurrentGame(parsed.game);
+      router.push("/review");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not import that game.");
+      setBusyAction(null);
+    }
   }
 
   async function saveAndReview(text: string) {
@@ -38,7 +52,8 @@ export function PgnInput({ canSave }: { canSave: boolean }) {
     setBusyAction("save");
 
     try {
-      const saved = await saveGamePgn(text);
+      const pgn = await resolveInputPgn(text);
+      const saved = await saveGamePgn(pgn);
       saveCurrentGame(toParsedGame(saved));
       router.push(`/games/${saved.id}`);
     } catch (err) {
@@ -73,7 +88,7 @@ export function PgnInput({ canSave }: { canSave: boolean }) {
       <Textarea
         value={pgn}
         onChange={(e) => setPgn(e.target.value)}
-        placeholder={`Paste PGN here, e.g.\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 ...`}
+        placeholder={`Paste PGN or a Chess.com / Lichess game link, e.g.\n\nhttps://lichess.org/abcdefgh\nhttps://www.chess.com/game/live/123456789\n\n1. e4 e5 2. Nf3 Nc6 ...`}
         rows={12}
         spellCheck={false}
       />
@@ -87,10 +102,10 @@ export function PgnInput({ canSave }: { canSave: boolean }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
-          onClick={() => reviewAsGuest(pgn)}
+          onClick={() => void reviewAsGuest(pgn)}
           disabled={!pgn.trim() || busyAction !== null}
         >
-          {busyAction === "review" ? "Loading..." : "Review Game"}
+          {busyAction === "review" ? "Importing..." : "Review Game"}
         </Button>
         {canSave ? (
           <Button
@@ -98,7 +113,7 @@ export function PgnInput({ canSave }: { canSave: boolean }) {
             onClick={() => void saveAndReview(pgn)}
             disabled={!pgn.trim() || busyAction !== null}
           >
-            {busyAction === "save" ? "Saving..." : "Save to Account"}
+            {busyAction === "save" ? "Importing..." : "Save to Account"}
           </Button>
         ) : null}
         <Button variant="outline" onClick={() => fileRef.current?.click()}>
@@ -118,8 +133,8 @@ export function PgnInput({ canSave }: { canSave: boolean }) {
       </div>
       {!canSave ? (
         <p className="text-xs text-zinc-500">
-          Guest reviews stay in this browser session. Sign in with a verified
-          account to save games permanently.
+          Paste PGN directly, upload a .pgn file, or paste a public Chess.com /
+          Lichess game link. Guest reviews stay in this browser session.
         </p>
       ) : null}
     </div>
