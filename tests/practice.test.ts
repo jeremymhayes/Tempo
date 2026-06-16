@@ -7,6 +7,10 @@ import {
   normalizeBotElo,
   PRACTICE_BOT_ELOS,
 } from "@/lib/practice/bot";
+import {
+  PRACTICE_MOVE_VISIBLE_ROWS,
+  toPracticeMoveItems,
+} from "@/lib/practice/moves";
 import { buildPracticePgn, getPracticeResult } from "@/lib/practice/pgn";
 
 test("practice bot config maps Elo into bounded Stockfish settings", () => {
@@ -62,4 +66,21 @@ test("practice PGN includes bot metadata and parses into the review flow", () =>
   assert.equal(parsed.ok ? parsed.game.white : "", "Player");
   assert.equal(parsed.ok ? parsed.game.black : "", "Tempo Bot 1200");
   assert.equal(parsed.ok ? parsed.game.moves.length : 0, 4);
+});
+
+test("practice move list exposes every half-move with active latest move", () => {
+  const chess = new Chess();
+  for (const san of ["e4", "e5", "Nf3", "Nc6", "Bb5", "a6"]) {
+    chess.move(san);
+  }
+
+  const items = toPracticeMoveItems(chess.history({ verbose: true }));
+
+  assert.equal(PRACTICE_MOVE_VISIBLE_ROWS, 10);
+  assert.deepEqual(
+    items.map((item) => item.label),
+    ["1. e4", "1... e5", "2. Nf3", "2... Nc6", "3. Bb5", "3... a6"],
+  );
+  assert.equal(items.at(-1)?.active, true);
+  assert.equal(items.slice(0, -1).every((item) => !item.active), true);
 });

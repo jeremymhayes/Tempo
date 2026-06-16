@@ -24,6 +24,11 @@ import {
   PRACTICE_BOT_ELOS,
   type PracticeBotElo,
 } from "@/lib/practice/bot";
+import {
+  formatPracticeMoveLabel,
+  PRACTICE_MOVE_VISIBLE_ROWS,
+  toPracticeMoveItems,
+} from "@/lib/practice/moves";
 import { buildPracticePgn, getPracticeResult } from "@/lib/practice/pgn";
 import { Button } from "@/components/ui/button";
 import {
@@ -82,11 +87,6 @@ function gameStatus(chess: Chess, playerColor: PieceColor) {
   return chess.turn() === playerColor ? "Your move" : "Bot thinking";
 }
 
-function moveLabel(move: Move, index: number) {
-  const moveNumber = Math.floor(index / 2) + 1;
-  return `${moveNumber}${move.color === "w" ? "." : "..."} ${move.san}`;
-}
-
 function chooseFallbackMove(chess: Chess) {
   const moves = chess.moves({ verbose: true });
   if (moves.length === 0) return null;
@@ -114,6 +114,7 @@ export function PracticeClient() {
   const playerColorRef = useRef(playerColor);
   const botEloRef = useRef(botElo);
   const finishedRef = useRef(finished);
+  const moveListRef = useRef<HTMLDivElement>(null);
 
   const botConfig = useMemo(() => eloToBotConfig(botElo), [botElo]);
   const sideToMove = position.split(" ")[1] as PieceColor;
@@ -345,17 +346,14 @@ export function PracticeClient() {
     return styles;
   }, [isPlayerTurn, lastMove, legalTargets]);
 
-  const moveRows = useMemo(() => {
-    const rows: Array<{ number: number; white?: Move; black?: Move }> = [];
-    for (const [index, move] of history.entries()) {
-      const moveNumber = Math.floor(index / 2) + 1;
-      const rowIndex = moveNumber - 1;
-      rows[rowIndex] ??= { number: moveNumber };
-      if (move.color === "w") rows[rowIndex].white = move;
-      else rows[rowIndex].black = move;
-    }
-    return rows;
-  }, [history]);
+  const moveItems = useMemo(() => toPracticeMoveItems(history), [history]);
+
+  useEffect(() => {
+    const activeMove = moveListRef.current?.querySelector<HTMLElement>(
+      "[data-active='true']",
+    );
+    activeMove?.scrollIntoView({ block: "nearest" });
+  }, [moveItems.length]);
 
   return (
     <div className="grid min-h-[calc(100vh-7rem)] gap-5 xl:grid-cols-[minmax(560px,1fr)_360px]">
@@ -414,7 +412,9 @@ export function PracticeClient() {
               {formatSide(playerColor)} vs Tempo Bot {botConfig.elo}
             </p>
             <p className="truncate font-mono text-sm text-zinc-100">
-              {lastMove ? moveLabel(lastMove, lastMoveIndex) : "Starting position"}
+              {lastMove
+                ? formatPracticeMoveLabel(lastMove, lastMoveIndex)
+                : "Starting position"}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -507,39 +507,44 @@ export function PracticeClient() {
           <CardHeader>
             <CardTitle>Moves</CardTitle>
           </CardHeader>
-          <CardContent className="max-h-[28rem] overflow-y-auto p-0">
-            {moveRows.length === 0 ? (
-              <div className="flex h-32 items-center justify-center text-sm text-zinc-600">
-                No moves yet
-              </div>
-            ) : (
-              <ol className="divide-y divide-zinc-900">
-                {moveRows.map((row) => (
-                  <li
-                    key={row.number}
-                    className="grid grid-cols-[3rem_1fr_1fr] items-center px-4 py-2 font-mono text-sm"
-                  >
-                    <span className="text-xs text-zinc-600">{row.number}</span>
-                    <span
+          <CardContent className="p-0">
+            <div
+              ref={moveListRef}
+              className="h-[22.5rem] overflow-y-auto"
+              style={{ maxHeight: `${PRACTICE_MOVE_VISIBLE_ROWS * 36}px` }}
+            >
+              {moveItems.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-zinc-600">
+                  No moves yet
+                </div>
+              ) : (
+                <ol className="divide-y divide-zinc-900">
+                  {moveItems.map((move) => (
+                    <li
+                      key={move.key}
+                      data-active={move.active ? "true" : undefined}
                       className={cn(
-                        "truncate text-zinc-300",
-                        row.white === lastMove ? "font-bold text-zinc-50" : "",
+                        "grid h-9 grid-cols-[4.5rem_minmax(0,1fr)] items-center px-4 font-mono text-sm",
+                        move.active
+                          ? "bg-zinc-100 font-bold text-zinc-950"
+                          : "text-zinc-300",
                       )}
                     >
-                      {row.white?.san ?? ""}
-                    </span>
-                    <span
-                      className={cn(
-                        "truncate text-zinc-300",
-                        row.black === lastMove ? "font-bold text-zinc-50" : "",
-                      )}
-                    >
-                      {row.black?.san ?? ""}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            )}
+                      <span
+                        className={cn(
+                          "text-xs",
+                          move.active ? "text-zinc-700" : "text-zinc-600",
+                        )}
+                      >
+                        {move.moveNumber}
+                        {move.color === "w" ? "." : "..."}
+                      </span>
+                      <span className="truncate">{move.san}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </div>
           </CardContent>
         </Card>
 
