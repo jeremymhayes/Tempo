@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { DEFAULT_POSITION } from "chess.js";
 import type { AnalysisUpdate } from "@/lib/engine/types";
 import {
+  getStockfishSpawnConfig,
   getStockfishScriptPath,
   ServerStockfishEngine,
 } from "@/lib/engine/server-stockfish-engine";
@@ -14,6 +15,19 @@ describe("server Stockfish engine", () => {
 
     assert.equal(scriptPath.endsWith("stockfish-18-lite-single.js"), true);
     assert.equal(existsSync(scriptPath), true);
+  });
+
+  it("uses a native Stockfish binary when a binary path is configured", () => {
+    assert.deepEqual(
+      getStockfishSpawnConfig({
+        binaryPath: "/usr/games/stockfish",
+        flavor: "single",
+      }),
+      {
+        command: "/usr/games/stockfish",
+        args: [],
+      },
+    );
   });
 
   it("analyzes through the server UCI engine", async () => {

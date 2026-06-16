@@ -13,6 +13,9 @@ export type ServerAnalysisConfig = {
   maxPgnLength: number;
   maxConcurrent: number;
   stockfishFlavor: string;
+  stockfishPath: string | null;
+  stockfishThreads: number | null;
+  stockfishHashMb: number | null;
 };
 
 const DEFAULT_MAX_MOVES = 200;
@@ -20,6 +23,8 @@ const DEFAULT_MAX_PGN_LENGTH = 200_000;
 const DEFAULT_MAX_CONCURRENT = 1;
 const DEFAULT_SERVER_ANALYSIS_DEPTH = 20;
 const DEFAULT_STOCKFISH_FLAVOR = "single";
+const MAX_STOCKFISH_THREADS = 32;
+const MAX_STOCKFISH_HASH_MB = 4096;
 
 export function isServerAnalysisEnabled(env: ServerAnalysisEnv): boolean {
   const value = env.TEMPO_SERVER_ANALYSIS_ENABLED?.trim().toLowerCase();
@@ -71,6 +76,17 @@ export function getServerAnalysisConfig(
     ),
     stockfishFlavor:
       env.TEMPO_SERVER_STOCKFISH_FLAVOR?.trim() || DEFAULT_STOCKFISH_FLAVOR,
+    stockfishPath: env.TEMPO_SERVER_STOCKFISH_PATH?.trim() || null,
+    stockfishThreads: readOptionalInt(
+      env.TEMPO_SERVER_STOCKFISH_THREADS,
+      1,
+      MAX_STOCKFISH_THREADS,
+    ),
+    stockfishHashMb: readOptionalInt(
+      env.TEMPO_SERVER_STOCKFISH_HASH_MB,
+      1,
+      MAX_STOCKFISH_HASH_MB,
+    ),
   };
 }
 
@@ -82,5 +98,16 @@ function readInt(
 ): number {
   const parsed = Number.parseInt(value ?? "", 10);
   if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.min(max, parsed));
+}
+
+function readOptionalInt(
+  value: string | undefined,
+  min: number,
+  max: number,
+): number | null {
+  if (!value?.trim()) return null;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return null;
   return Math.max(min, Math.min(max, parsed));
 }

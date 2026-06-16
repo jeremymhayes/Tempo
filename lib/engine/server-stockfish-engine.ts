@@ -29,6 +29,19 @@ type PendingAnalyze = {
   onUpdate: (update: AnalysisUpdate) => void;
 };
 
+export type StockfishSpawnConfig = {
+  command: string;
+  args: string[];
+};
+
+export type ServerStockfishEngineOptions = {
+  flavor?: string;
+  binaryPath?: string | null;
+  threads?: number | null;
+  hashMb?: number | null;
+  searchTimeoutMs?: number;
+};
+
 export function getStockfishScriptPath(flavor = "lite-single"): string {
   const normalized = flavor.trim().toLowerCase();
   const filename = STOCKFISH_FLAVOR_FILES[normalized] ?? flavor;
@@ -52,6 +65,23 @@ export function getStockfishScriptPath(flavor = "lite-single"): string {
   return scriptPath;
 }
 
+export function getStockfishSpawnConfig(
+  options: Pick<ServerStockfishEngineOptions, "binaryPath" | "flavor"> = {},
+): StockfishSpawnConfig {
+  const binaryPath = options.binaryPath?.trim();
+  if (binaryPath) {
+    return {
+      command: binaryPath,
+      args: [],
+    };
+  }
+
+  return {
+    command: process.execPath,
+    args: [getStockfishScriptPath(options.flavor ?? "lite-single")],
+  };
+}
+
 function resolveStockfishPackageJson(): string {
   const resolved = require.resolve("stockfish/package.json");
   if (typeof resolved !== "string") {
@@ -62,6 +92,12 @@ function resolveStockfishPackageJson(): string {
 
 export class ServerStockfishEngine implements AnalysisEngine {
   readonly id = "stockfish" as const;
+
+  private readonly flavor: string;
+  private readonly binaryPath: string | null;
+  private readonly threads: number | null;
+  private readonly hashMb: number | null;
+  private readonly searchTimeoutMs: number;
 
   private engine: ChildProcessWithoutNullStreams | null = null;
   private ready = false;
@@ -84,15 +120,41 @@ export class ServerStockfishEngine implements AnalysisEngine {
   }> = [];
 
   constructor(
-    private readonly flavor = "lite-single",
-    private readonly searchTimeoutMs = DEFAULT_SEARCH_TIMEOUT_MS,
-  ) {}
+    options: string | ServerStockfishEngineOptions = "lite-single",
+    searchTimeoutMs = DEFAULT_SEARCH_TIMEOUT_MS,
+  ) {
+    const normalized =
+      typeof options === "string"
+        ? {
+            flavor: options,
+            binaryPath: null,
+            threads: null,
+            hashMb: null,
+            searchTimeoutMs,
+          }
+        : {
+            flavor: options.flavor ?? "lite-single",
+            binaryPath: options.binaryPath?.trim() || null,
+            threads: options.threads ?? null,
+            hashMb: options.hashMb ?? null,
+            searchTimeoutMs: options.searchTimeoutMs ?? searchTimeoutMs,
+          };
+
+    this.flavor = normalized.flavor;
+    this.binaryPath = normalized.binaryPath;
+    this.threads = normalized.threads;
+    this.hashMb = normalized.hashMb;
+    this.searchTimeoutMs = normalized.searchTimeoutMs;
+  }
 
   async init(): Promise<void> {
     if (this.engine) return;
 
-    const scriptPath = getStockfishScriptPath(this.flavor);
-    const engine = spawn(process.execPath, [scriptPath], {
+    const spawnConfig = getStockfishSpawnConfig({
+      binaryPath: this.binaryPath,
+      flavor: this.flavor,
+    });
+    const engine = spawn(spawnConfig.command, spawnConfig.args, {
       stdio: "pipe",
       windowsHide: true,
     });
@@ -107,6 +169,12 @@ export class ServerStockfishEngine implements AnalysisEngine {
 
     this.post("uci");
     await this.waitFor((line) => line.includes("uciok"), "uci handshake");
+    if (this.threads !== null) {
+      this.post(`setoption name Threads value ${this.threads}`);
+    }
+    if (this.hashMb !== null) {
+      this.post(`setoption name Hash value ${this.hashMb}`);
+    }
     this.post("isready");
     await this.waitFor((line) => line.includes("readyok"), "engine ready");
     this.ready = true;

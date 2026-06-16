@@ -149,7 +149,12 @@ export async function POST(request: NextRequest) {
     return jsonError("Server analysis is busy", 503);
   }
 
-  const engine = new ServerStockfishEngine(config.stockfishFlavor);
+  const engine = new ServerStockfishEngine({
+    flavor: config.stockfishFlavor,
+    binaryPath: config.stockfishPath,
+    threads: config.stockfishThreads,
+    hashMb: config.stockfishHashMb,
+  });
   if (wantsStream(request)) {
     return streamServerAnalysis(
       parsed.game,

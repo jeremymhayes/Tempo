@@ -35,6 +35,9 @@ describe("server analysis configuration", () => {
       TEMPO_SERVER_ANALYSIS_MAX_PGN_LENGTH: "25",
       TEMPO_SERVER_ANALYSIS_MAX_CONCURRENT: "9",
       TEMPO_SERVER_STOCKFISH_FLAVOR: "single",
+      TEMPO_SERVER_STOCKFISH_PATH: "/usr/games/stockfish",
+      TEMPO_SERVER_STOCKFISH_THREADS: "99",
+      TEMPO_SERVER_STOCKFISH_HASH_MB: "99999",
     });
 
     assert.equal(config.enabled, true);
@@ -45,6 +48,9 @@ describe("server analysis configuration", () => {
     assert.equal(config.maxPgnLength, 25);
     assert.equal(config.maxConcurrent, 4);
     assert.equal(config.stockfishFlavor, "single");
+    assert.equal(config.stockfishPath, "/usr/games/stockfish");
+    assert.equal(config.stockfishThreads, 32);
+    assert.equal(config.stockfishHashMb, 4096);
   });
 
   it("uses a stronger depth by default for server analysis", () => {
@@ -56,6 +62,9 @@ describe("server analysis configuration", () => {
     assert.equal(config.analyzeOptions.multiPV, 3);
     assert.equal(config.analyzeOptions.skill, 20);
     assert.equal(config.stockfishFlavor, "single");
+    assert.equal(config.stockfishPath, null);
+    assert.equal(config.stockfishThreads, null);
+    assert.equal(config.stockfishHashMb, null);
   });
 });
 
