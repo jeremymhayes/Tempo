@@ -23,7 +23,7 @@ export function EngineSelector({
       value={value}
       onValueChange={(id) => onChange(id as EngineId)}
     >
-      <SelectTrigger aria-label="Analysis engine">
+      <SelectTrigger aria-label="Analysis engine" className="w-full">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
