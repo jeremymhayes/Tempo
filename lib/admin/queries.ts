@@ -1,5 +1,16 @@
 import { getPrisma } from "@/lib/db";
 
+type AdminUserQueryRow = {
+  id: string;
+  email: string;
+  emailVerifiedAt: Date | null;
+  createdAt: Date;
+  _count: {
+    games: number;
+    sessions: number;
+  };
+};
+
 export type AdminUserRow = {
   id: string;
   email: string;
@@ -10,7 +21,7 @@ export type AdminUserRow = {
 };
 
 export async function listUsers(): Promise<AdminUserRow[]> {
-  const users = await getPrisma().user.findMany({
+  const users: AdminUserQueryRow[] = await getPrisma().user.findMany({
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -30,6 +41,29 @@ export async function listUsers(): Promise<AdminUserRow[]> {
     sessionCount: u._count.sessions,
   }));
 }
+
+type AdminUserDetailQueryRow = {
+  id: string;
+  email: string;
+  emailVerifiedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  _count: {
+    sessions: number;
+  };
+  games: Array<{
+    id: string;
+    whiteName: string | null;
+    blackName: string | null;
+    result: string | null;
+    event: string | null;
+    playedAt: Date | null;
+    createdAt: Date;
+    _count: {
+      moves: number;
+    };
+  }>;
+};
 
 export type AdminUserGame = {
   id: string;
@@ -55,30 +89,31 @@ export type AdminUserDetail = {
 export async function getUserDetail(
   id: string,
 ): Promise<AdminUserDetail | null> {
-  const user = await getPrisma().user.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      email: true,
-      emailVerifiedAt: true,
-      createdAt: true,
-      updatedAt: true,
-      _count: { select: { sessions: true } },
-      games: {
-        orderBy: { createdAt: "desc" },
-        select: {
-          id: true,
-          whiteName: true,
-          blackName: true,
-          result: true,
-          event: true,
-          playedAt: true,
-          createdAt: true,
-          _count: { select: { moves: true } },
+  const user: AdminUserDetailQueryRow | null =
+    await getPrisma().user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        emailVerifiedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: { select: { sessions: true } },
+        games: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            whiteName: true,
+            blackName: true,
+            result: true,
+            event: true,
+            playedAt: true,
+            createdAt: true,
+            _count: { select: { moves: true } },
+          },
         },
       },
-    },
-  });
+    });
 
   if (!user) return null;
 
