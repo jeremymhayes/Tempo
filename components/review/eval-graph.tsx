@@ -16,6 +16,12 @@ const CLASSIFICATION_SCORE = {
   blunder: 18,
 } as const;
 
+function xForIndex(index: number, count: number, width: number): number {
+  if (count <= 0) return 0;
+  if (count === 1) return width / 2;
+  return (index / (count - 1)) * width;
+}
+
 export function EvalGraph({
   moves,
   evalByPly,
@@ -28,14 +34,14 @@ export function EvalGraph({
   const width = 440;
   const height = 86;
   const points = moves.map((move, i) => {
-    const score = evalByPly[i];
+    const score = evalByPly[move.ply];
     const cp =
       score?.type === "cp"
         ? score.value
         : score?.type === "mate"
           ? Math.sign(score.value) * 900
           : (CLASSIFICATION_SCORE[move.classification ?? "good"] - 75) * 22;
-    const x = moves.length <= 1 ? 0 : (i / (moves.length - 1)) * width;
+    const x = xForIndex(i, moves.length, width);
     const y = height / 2 - Math.max(-650, Math.min(650, cp)) / 18;
     return { x, y: Math.max(4, Math.min(height - 4, y)), move };
   });
@@ -59,6 +65,17 @@ export function EvalGraph({
       <line x1="0" x2={width} y1={height / 2} y2={height / 2} stroke="#9f9f9f" />
       {area ? <path d={area} fill="#f1f1f1" opacity="0.9" /> : null}
       {path ? <path d={path} fill="none" stroke="#fafafa" strokeWidth="2" /> : null}
+      {current ? (
+        <line
+          x1={current.x}
+          x2={current.x}
+          y1="0"
+          y2={height}
+          stroke="#111111"
+          strokeDasharray="3 3"
+          opacity="0.55"
+        />
+      ) : null}
       {points.map((point) => {
         const meta = point.move.classification
           ? CLASS_META[point.move.classification]
@@ -75,17 +92,6 @@ export function EvalGraph({
           />
         );
       })}
-      {current ? (
-        <line
-          x1={current.x}
-          x2={current.x}
-          y1="0"
-          y2={height}
-          stroke="#111111"
-          strokeDasharray="3 3"
-          opacity="0.55"
-        />
-      ) : null}
     </svg>
   );
 }
