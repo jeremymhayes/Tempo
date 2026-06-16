@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Clock3,
+  Bot,
   Crown,
   Home,
   ListChecks,
@@ -23,6 +24,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 
 const NAV = [
   { href: "/", label: "Import", icon: Home },
+  { href: "/practice", label: "Practice", icon: Bot },
   { href: "/review", label: "Review", icon: ListChecks },
   { href: "/games", label: "Saved Games", icon: Crown },
   { href: "/settings", label: "Settings", icon: Settings },
