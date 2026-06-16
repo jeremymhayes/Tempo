@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clock3, Crown, Home, ListChecks, Settings, UserRound } from "lucide-react";
+import {
+  Clock3,
+  Crown,
+  Home,
+  ListChecks,
+  Settings,
+  Shield,
+  UserRound,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/lib/auth/session";
 import { LogoutButton } from "@/components/auth/logout-button";
@@ -14,8 +22,17 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-export function Sidebar({ user }: { user: AuthUser | null }) {
+const ADMIN_NAV = { href: "/admin", label: "Admin", icon: Shield };
+
+export function Sidebar({
+  user,
+  isAdmin = false,
+}: {
+  user: AuthUser | null;
+  isAdmin?: boolean;
+}) {
   const pathname = usePathname();
+  const nav = isAdmin ? [...NAV, ADMIN_NAV] : NAV;
 
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-800 bg-zinc-950">
@@ -26,7 +43,7 @@ export function Sidebar({ user }: { user: AuthUser | null }) {
         </span>
       </div>
       <nav className="flex flex-col gap-0.5 p-2">
-        {NAV.map(({ href, label, icon: Icon }) => {
+        {nav.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (

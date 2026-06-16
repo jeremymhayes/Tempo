@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Sidebar } from "./sidebar";
 import { getCurrentUser } from "@/lib/auth/session";
+import { isAdminEmail } from "@/lib/auth/admin";
 
 /**
  * Top-level page chrome: persistent sidebar + scrollable content area.
@@ -18,10 +19,11 @@ export async function AppShell({
   children: React.ReactNode;
 }) {
   const user = await getCurrentUser();
+  const isAdmin = isAdminEmail(user?.email);
 
   return (
     <div className="flex min-h-screen bg-black text-zinc-100">
-      <Sidebar user={user} />
+      <Sidebar user={user} isAdmin={isAdmin} />
       <div className="flex min-w-0 flex-1 flex-col">
         {title ? (
           <header className="flex h-14 items-center justify-between border-b border-zinc-800 px-6">
