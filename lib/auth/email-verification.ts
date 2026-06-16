@@ -43,11 +43,15 @@ export function getAppUrl(): string {
   );
 }
 
+export function buildAppUrl(path: string, baseUrl = getAppUrl()): URL {
+  return new URL(path, baseUrl);
+}
+
 export function buildEmailVerificationUrl(
   token: string,
   baseUrl = getAppUrl(),
 ): string {
-  const url = new URL("/api/auth/verify-email", baseUrl);
+  const url = buildAppUrl("/api/auth/verify-email", baseUrl);
   url.searchParams.set("token", token);
 
   return url.toString();

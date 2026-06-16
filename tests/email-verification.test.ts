@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildAppUrl,
   buildEmailVerificationUrl,
   createEmailVerificationToken,
   getEmailVerificationExpiresAt,
@@ -43,5 +44,17 @@ test("email verification URL points at the app verify route", () => {
   assert.equal(
     url,
     "https://chess.jeremymhayes.com/api/auth/verify-email?token=token_123",
+  );
+});
+
+test("app redirects use the configured public app URL", () => {
+  const url = buildAppUrl(
+    "/verify-email?status=invalid",
+    "https://chess.jeremymhayes.com/",
+  );
+
+  assert.equal(
+    url.toString(),
+    "https://chess.jeremymhayes.com/verify-email?status=invalid",
   );
 });
