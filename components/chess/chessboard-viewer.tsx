@@ -5,15 +5,19 @@ import { Chessboard } from "react-chessboard";
 import type { PieceColor } from "@/types/chess";
 
 const LAST_MOVE_HIGHLIGHT = "rgba(120, 120, 90, 0.45)";
+const BEST_MOVE_ARROW = "rgba(74, 222, 128, 0.85)";
 
 export function ChessboardViewer({
   fen,
   orientation = "w",
   lastMove,
+  bestMove,
 }: {
   fen: string;
   orientation?: PieceColor;
   lastMove?: { from: string; to: string } | null;
+  /** Engine's suggested move, drawn as an arrow when provided. */
+  bestMove?: { from: string; to: string } | null;
 }) {
   const squareStyles = useMemo(() => {
     if (!lastMove) return {};
@@ -22,6 +26,20 @@ export function ChessboardViewer({
       [lastMove.to]: { background: LAST_MOVE_HIGHLIGHT },
     };
   }, [lastMove]);
+
+  const arrows = useMemo(
+    () =>
+      bestMove
+        ? [
+            {
+              startSquare: bestMove.from,
+              endSquare: bestMove.to,
+              color: BEST_MOVE_ARROW,
+            },
+          ]
+        : [],
+    [bestMove],
+  );
 
   return (
     <div className="w-full select-none">
@@ -33,6 +51,7 @@ export function ChessboardViewer({
           showAnimations: true,
           animationDurationInMs: 150,
           squareStyles,
+          arrows,
           darkSquareStyle: { backgroundColor: "#46464a" },
           lightSquareStyle: { backgroundColor: "#9a9a9c" },
           boardStyle: { borderRadius: "4px", overflow: "hidden" },

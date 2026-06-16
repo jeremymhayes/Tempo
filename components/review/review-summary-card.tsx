@@ -8,6 +8,7 @@ const CLASSIFICATION_LABEL: Record<MoveClassification, string> = {
   good: "Good",
   book: "Book",
   inaccuracy: "Inaccuracy",
+  miss: "Miss",
   mistake: "Mistake",
   blunder: "Blunder",
 };
@@ -19,6 +20,7 @@ const ORDER: MoveClassification[] = [
   "good",
   "book",
   "inaccuracy",
+  "miss",
   "mistake",
   "blunder",
 ];

@@ -20,6 +20,7 @@ const CLASSIFICATION_SHORT: Record<MoveClassification, string> = {
   good: "Good",
   book: "Book",
   inaccuracy: "?!",
+  miss: "X",
   mistake: "?",
   blunder: "??",
 };

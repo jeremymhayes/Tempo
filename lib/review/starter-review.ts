@@ -17,6 +17,7 @@ const CLASSIFICATION_SCORE: Record<MoveClassification, number> = {
   good: 82,
   book: 90,
   inaccuracy: 68,
+  miss: 35,
   mistake: 45,
   blunder: 18,
 };

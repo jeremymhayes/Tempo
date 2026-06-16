@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ReviewPage() {
   return (
-    <AppShell title="Review" description="Step through the loaded game">
+    <AppShell>
       <ReviewClient />
     </AppShell>
   );
