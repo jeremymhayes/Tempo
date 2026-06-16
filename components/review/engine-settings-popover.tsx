@@ -46,16 +46,19 @@ export function EngineSettingsPopover({
   settings,
   status,
   depth,
+  liveAnalysisDisabledReason,
   onChange,
   onAnalyzeNow,
 }: {
   settings: AnalysisSettings;
   status: EngineStatus;
   depth: number;
+  liveAnalysisDisabledReason?: string | null;
   onChange: (patch: Partial<AnalysisSettings>) => void;
   onAnalyzeNow: () => void;
 }) {
   const b = SETTINGS_BOUNDS;
+  const liveAnalysisDisabled = Boolean(liveAnalysisDisabledReason);
   const multiPVOptions = Array.from(
     { length: b.multiPV.max - b.multiPV.min + 1 },
     (_, i) => b.multiPV.min + i,
@@ -80,11 +83,16 @@ export function EngineSettingsPopover({
               Engine settings
             </p>
             <p className="text-xs text-muted-foreground">
-              {status}
-              {depth > 0 ? ` · depth ${depth}` : null}
+              {liveAnalysisDisabledReason ??
+                `${status}${depth > 0 ? ` · depth ${depth}` : ""}`}
             </p>
           </div>
-          <Button type="button" size="sm" onClick={onAnalyzeNow}>
+          <Button
+            type="button"
+            size="sm"
+            disabled={liveAnalysisDisabled}
+            onClick={onAnalyzeNow}
+          >
             Analyze now
           </Button>
         </div>
@@ -192,6 +200,7 @@ export function EngineSettingsPopover({
               <Switch
                 aria-label="Auto-analyze"
                 checked={settings.autoAnalyze}
+                disabled={liveAnalysisDisabled}
                 onCheckedChange={(autoAnalyze) => onChange({ autoAnalyze })}
               />
             </div>

@@ -12,6 +12,7 @@ import {
   createReviewSnapshotFromMoves,
   evalByPlyFromSnapshot,
   isReviewSnapshot,
+  reviewSnapshotHasEngineAnalysis,
 } from "@/lib/review/snapshot";
 import { selectReviewFocusFen } from "@/lib/review/report-focus";
 
@@ -211,6 +212,23 @@ describe("review snapshots", () => {
       0: { type: "cp", value: 20 },
       1: { type: "cp", value: 12 },
     });
+  });
+
+  it("detects when a snapshot already contains engine analysis", () => {
+    const starterSnapshot = createReviewSnapshot(
+      game([move(0, "e4", "w"), move(1, "e5", "b")]),
+    );
+    const engineSnapshot = createReviewSnapshotFromMoves([
+      {
+        ...move(0, "e4", "w"),
+        bestMoveUci: "d2d4",
+        evalBefore: { type: "cp", value: 10 },
+      },
+    ]);
+
+    assert.equal(reviewSnapshotHasEngineAnalysis(null), false);
+    assert.equal(reviewSnapshotHasEngineAnalysis(starterSnapshot), false);
+    assert.equal(reviewSnapshotHasEngineAnalysis(engineSnapshot), true);
   });
 
   it("derives saved-game aggregate fields from an engine snapshot", () => {

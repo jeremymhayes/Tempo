@@ -47,10 +47,13 @@ import {
 } from "@/lib/review/review-stats";
 import {
   createReviewSnapshotFromMoves,
+  evalByPlyFromSnapshot,
+  reviewSnapshotHasEngineAnalysis,
   type ReviewSnapshot,
 } from "@/lib/review/snapshot";
 import { shouldShowBestMoveHint } from "@/lib/review/best-move-hint";
 import { buildEngineReviewedMoves } from "@/lib/review/deep-analysis";
+import { shouldEnableLivePositionAnalysis } from "@/lib/review/live-position-analysis";
 import {
   estimateRemainingSeconds,
   formatAnalysisEta,
@@ -124,6 +127,10 @@ export function ReviewClient({
   >({});
   const [boardAreaRef, boardArea] = useBoxSize<HTMLDivElement>();
   const persistedReviewKey = useRef<string | null>(null);
+  const initialSnapshotHasEngineAnalysis = useMemo(
+    () => reviewSnapshotHasEngineAnalysis(initialReviewSnapshot),
+    [initialReviewSnapshot],
+  );
 
   const updateSettings = useCallback((patch: Partial<AnalysisSettings>) => {
     setSettings((prev) => {
@@ -163,17 +170,38 @@ export function ReviewClient({
     };
   }, [game, initialReviewSnapshot]);
   const reviewedMoves = review?.moves ?? EMPTY_REVIEWED_MOVES;
-  const deepReview = useDeepReviewAnalysis(game);
+  const deepReview = useDeepReviewAnalysis(
+    initialSnapshotHasEngineAnalysis ? null : game,
+  );
+  const reviewReady =
+    initialSnapshotHasEngineAnalysis || deepReview.status === "ready";
+  const snapshotEvalByPly = useMemo(
+    () =>
+      initialReviewSnapshot
+        ? evalByPlyFromSnapshot(initialReviewSnapshot)
+        : {},
+    [initialReviewSnapshot],
+  );
+  const hasPrecomputedReviewAnalysis =
+    initialSnapshotHasEngineAnalysis ||
+    (deepReview.status === "ready" &&
+      Object.keys(deepReview.analysisByPly).length > 0);
+  const livePositionAnalysisEnabled = shouldEnableLivePositionAnalysis({
+    hasGame: Boolean(game),
+    reviewReady,
+    hasPrecomputedReviewAnalysis,
+  });
   const displayEvalByPly = useMemo(
-    () => ({ ...deepReview.evalByPly, ...liveEvalByPly }),
-    [deepReview.evalByPly, liveEvalByPly],
+    () => ({ ...snapshotEvalByPly, ...deepReview.evalByPly, ...liveEvalByPly }),
+    [snapshotEvalByPly, deepReview.evalByPly, liveEvalByPly],
   );
   const opening = useMemo(
     () => (game ? (initialOpening ?? deriveOpeningBreakdown(game.moves)) : null),
     [game, initialOpening],
   );
   const classifiedMoves = useMemo<ReviewListMove[]>(() => {
-    if (!game || deepReview.status !== "ready") return reviewedMoves;
+    if (!game || !reviewReady) return reviewedMoves;
+    if (initialSnapshotHasEngineAnalysis) return reviewedMoves;
 
     return buildEngineReviewedMoves(
       deepReview.moves.length > 0 ? deepReview.moves : reviewedMoves,
@@ -185,7 +213,8 @@ export function ReviewClient({
     );
   }, [
     game,
-    deepReview.status,
+    reviewReady,
+    initialSnapshotHasEngineAnalysis,
     deepReview.moves,
     deepReview.evalByPly,
     deepReview.analysisByPly,
@@ -214,7 +243,7 @@ export function ReviewClient({
   const fen = game ? fenAtPly(game, ply) : "";
   const engine = useEngineAnalysis({
     fen,
-    enabled: Boolean(game) && deepReview.status === "ready",
+    enabled: livePositionAnalysisEnabled,
     settings,
   });
   const liveUpdate =
@@ -258,7 +287,8 @@ export function ReviewClient({
     if (
       !gameId ||
       !game ||
-      deepReview.status !== "ready" ||
+      !reviewReady ||
+      initialSnapshotHasEngineAnalysis ||
       classifiedMoves.length === 0
     ) {
       return;
@@ -281,7 +311,13 @@ export function ReviewClient({
       }
       console.error("Failed to save engine review snapshot:", error);
     });
-  }, [gameId, game, deepReview.status, classifiedMoves]);
+  }, [
+    gameId,
+    game,
+    reviewReady,
+    initialSnapshotHasEngineAnalysis,
+    classifiedMoves,
+  ]);
 
   if (!loaded) {
     return (
@@ -314,7 +350,7 @@ export function ReviewClient({
     );
   }
 
-  if (deepReview.status !== "ready") {
+  if (!reviewReady) {
     const percent = progressPercent(deepReview.current, deepReview.total);
     const eta = formatAnalysisEta(
       estimateRemainingSeconds({
@@ -400,16 +436,18 @@ export function ReviewClient({
     ? toWhitePov(liveUpdate.lines[0].score, sideToMove)
     : (displayEvalByPly[ply] ?? null);
   const openingBreakdown = opening ?? deriveOpeningBreakdown(game.moves);
+  const currentMove = ply >= 0 ? (classifiedMoves[ply] as ReviewedMove) : null;
 
   const bestArrow = (() => {
     if (!settings.showBestMove) return null;
     const uci = liveUpdate?.bestMove ?? liveUpdate?.lines[0]?.pv[0];
-    if (!uci) return null;
-    const sq = uciToSquares(uci);
+    const reviewUci = currentMove?.bestMoveUci;
+    const targetUci = uci ?? reviewUci;
+    if (!targetUci) return null;
+    const sq = uciToSquares(targetUci);
     return sq ? { from: sq.from, to: sq.to } : null;
   })();
 
-  const currentMove = ply >= 0 ? (classifiedMoves[ply] as ReviewedMove) : null;
   const currentClass = currentMove?.classification ?? null;
   const boardSide = Math.max(0, Math.min(boardArea.w - 46, boardArea.h - 94));
   const whiteName = formatPlayer(game.white, "White");
@@ -441,6 +479,9 @@ export function ReviewClient({
                 settings={settings}
                 status={engine.status}
                 depth={liveUpdate?.depth ?? 0}
+                liveAnalysisDisabledReason={
+                  hasPrecomputedReviewAnalysis ? "Using review analysis" : null
+                }
                 onChange={updateSettings}
                 onAnalyzeNow={engine.analyzeNow}
               />
@@ -510,14 +551,14 @@ export function ReviewClient({
               blackName={blackName}
               stats={stats}
               moves={classifiedMoves}
-              evalByPly={deepReview.evalByPly}
+              evalByPly={displayEvalByPly}
               opening={openingBreakdown}
             />
           ) : (
             <ReviewMovePanel
               moves={classifiedMoves}
               currentPly={ply}
-              evalByPly={deepReview.evalByPly}
+              evalByPly={displayEvalByPly}
               onSelect={setPly}
             />
           )}

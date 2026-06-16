@@ -125,3 +125,17 @@ export function evalByPlyFromSnapshot(
 
   return evalByPly;
 }
+
+export function reviewSnapshotHasEngineAnalysis(
+  snapshot: ReviewSnapshot | null | undefined,
+): boolean {
+  return Boolean(
+    snapshot?.moves.some(
+      (move) =>
+        Boolean(move.bestMoveUci) ||
+        Boolean(move.bestLine?.length) ||
+        Boolean(move.evalBefore) ||
+        Boolean(move.evalAfter),
+    ),
+  );
+}

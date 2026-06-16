@@ -5,6 +5,7 @@ import {
   formatAnalysisEta,
   progressPercent,
 } from "@/lib/review/analysis-progress";
+import { shouldEnableLivePositionAnalysis } from "@/lib/review/live-position-analysis";
 
 describe("review analysis progress UI helpers", () => {
   it("calculates a clamped progress percentage", () => {
@@ -32,5 +33,24 @@ describe("review analysis progress UI helpers", () => {
     assert.equal(formatAnalysisEta(12), "12s");
     assert.equal(formatAnalysisEta(75), "1m 15s");
     assert.equal(formatAnalysisEta(3_900), "1h 5m");
+  });
+
+  it("does not enable browser position analysis after a precomputed review is ready", () => {
+    assert.equal(
+      shouldEnableLivePositionAnalysis({
+        hasGame: true,
+        reviewReady: true,
+        hasPrecomputedReviewAnalysis: true,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldEnableLivePositionAnalysis({
+        hasGame: true,
+        reviewReady: true,
+        hasPrecomputedReviewAnalysis: false,
+      }),
+      true,
+    );
   });
 });
