@@ -4,6 +4,8 @@ import {
   getServerAnalysisConfig,
   isServerAnalysisEnabled,
 } from "@/lib/review/server-analysis-config";
+import { serverAnalysisFailurePayload } from "@/lib/review/server-analysis-error";
+import { tryAcquireServerAnalysisSlot } from "@/lib/review/server-analysis-limiter";
 import { readAnalysisPgnBody } from "@/lib/review/server-analysis-request";
 
 describe("server analysis configuration", () => {
@@ -31,6 +33,7 @@ describe("server analysis configuration", () => {
       TEMPO_SERVER_ANALYSIS_SKILL: "-3",
       TEMPO_SERVER_ANALYSIS_MAX_MOVES: "0",
       TEMPO_SERVER_ANALYSIS_MAX_PGN_LENGTH: "25",
+      TEMPO_SERVER_ANALYSIS_MAX_CONCURRENT: "9",
       TEMPO_SERVER_STOCKFISH_FLAVOR: "single",
     });
 
@@ -40,6 +43,7 @@ describe("server analysis configuration", () => {
     assert.equal(config.analyzeOptions.skill, 0);
     assert.equal(config.maxMoves, 1);
     assert.equal(config.maxPgnLength, 25);
+    assert.equal(config.maxConcurrent, 4);
     assert.equal(config.stockfishFlavor, "single");
   });
 });
@@ -63,5 +67,34 @@ describe("server analysis request body", () => {
       status: 413,
       error: "PGN is too large for server analysis",
     });
+  });
+});
+
+describe("server analysis error payload", () => {
+  it("includes a concise reason for client diagnostics", () => {
+    assert.deepEqual(
+      serverAnalysisFailurePayload(new Error("Engine timed out during ready.")),
+      {
+        error: "Server analysis failed",
+        reason: "Engine timed out during ready.",
+      },
+    );
+  });
+});
+
+describe("server analysis concurrency limiter", () => {
+  it("rejects excess work until an active analysis releases its slot", () => {
+    const first = tryAcquireServerAnalysisSlot(1);
+    assert.notEqual(first, null);
+
+    try {
+      assert.equal(tryAcquireServerAnalysisSlot(1), null);
+    } finally {
+      first?.release();
+    }
+
+    const afterRelease = tryAcquireServerAnalysisSlot(1);
+    assert.notEqual(afterRelease, null);
+    afterRelease?.release();
   });
 });

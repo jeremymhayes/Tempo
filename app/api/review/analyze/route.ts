@@ -3,6 +3,8 @@ import { parsePgnForReview } from "@/lib/chess/pgn-review";
 import { ServerStockfishEngine } from "@/lib/engine/server-stockfish-engine";
 import { analyzeGameWithEngine } from "@/lib/review/engine-analysis";
 import { getServerAnalysisConfig } from "@/lib/review/server-analysis-config";
+import { serverAnalysisFailurePayload } from "@/lib/review/server-analysis-error";
+import { tryAcquireServerAnalysisSlot } from "@/lib/review/server-analysis-limiter";
 import { readAnalysisPgnBody } from "@/lib/review/server-analysis-request";
 
 export const runtime = "nodejs";
@@ -39,6 +41,11 @@ export async function POST(request: NextRequest) {
     return jsonError("Game is too large for server analysis", 413);
   }
 
+  const slot = tryAcquireServerAnalysisSlot(config.maxConcurrent);
+  if (!slot) {
+    return jsonError("Server analysis is busy", 503);
+  }
+
   const engine = new ServerStockfishEngine(config.stockfishFlavor);
   try {
     await engine.init();
@@ -48,8 +55,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Server Stockfish analysis failed:", error);
-    return jsonError("Server analysis failed", 500);
+    return NextResponse.json(serverAnalysisFailurePayload(error), {
+      status: 500,
+    });
   } finally {
     engine.dispose();
+    slot.release();
   }
 }

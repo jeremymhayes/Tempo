@@ -12,11 +12,13 @@ export type ServerAnalysisConfig = {
   analyzeOptions: AnalyzeOptions;
   maxMoves: number;
   maxPgnLength: number;
+  maxConcurrent: number;
   stockfishFlavor: string;
 };
 
 const DEFAULT_MAX_MOVES = 200;
 const DEFAULT_MAX_PGN_LENGTH = 200_000;
+const DEFAULT_MAX_CONCURRENT = 1;
 const DEFAULT_STOCKFISH_FLAVOR = "lite-single";
 
 export function isServerAnalysisEnabled(env: ServerAnalysisEnv): boolean {
@@ -60,6 +62,12 @@ export function getServerAnalysisConfig(
       DEFAULT_MAX_PGN_LENGTH,
       1,
       1_000_000,
+    ),
+    maxConcurrent: readInt(
+      env.TEMPO_SERVER_ANALYSIS_MAX_CONCURRENT,
+      DEFAULT_MAX_CONCURRENT,
+      1,
+      4,
     ),
     stockfishFlavor:
       env.TEMPO_SERVER_STOCKFISH_FLAVOR?.trim() || DEFAULT_STOCKFISH_FLAVOR,

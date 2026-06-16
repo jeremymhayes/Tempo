@@ -3,8 +3,16 @@ import type { ReviewAnalysisResult } from "@/lib/review/engine-analysis";
 
 async function readApiError(response: Response): Promise<string> {
   try {
-    const body = (await response.json()) as { error?: unknown };
-    return typeof body.error === "string" ? body.error : response.statusText;
+    const body = (await response.json()) as {
+      error?: unknown;
+      reason?: unknown;
+    };
+    if (typeof body.error === "string") {
+      return typeof body.reason === "string"
+        ? `${body.error}: ${body.reason}`
+        : body.error;
+    }
+    return response.statusText;
   } catch {
     return response.statusText;
   }
