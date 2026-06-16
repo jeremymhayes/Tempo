@@ -16,12 +16,13 @@ interface MovePair {
 const CLASSIFICATION_SHORT: Record<MoveClassification, string> = {
   brilliant: "!!",
   great: "!",
-  best: "Best",
-  good: "Good",
   book: "Book",
+  best: "Best",
+  excellent: "Exc",
+  good: "Good",
   inaccuracy: "?!",
-  miss: "X",
   mistake: "?",
+  miss: "X",
   blunder: "??",
 };
 

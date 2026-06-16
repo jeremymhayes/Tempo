@@ -7,7 +7,11 @@ import {
   toMovePairs,
   type ReviewListMove,
 } from "@/lib/review/review-stats";
-import type { ReviewSnapshot } from "@/lib/review/snapshot";
+import {
+  evalByPlyFromSnapshot,
+  type ReviewSnapshot,
+} from "@/lib/review/snapshot";
+import { selectReviewFocusFen } from "@/lib/review/report-focus";
 import { AnalysisBoard } from "@/components/chess/analysis-board";
 import { EvalGraph } from "./eval-graph";
 import { OpeningBreakdownPanel } from "./opening-breakdown";
@@ -25,6 +29,14 @@ function snapshotMoves(game: ParsedGame, snapshot: ReviewSnapshot): ReviewListMo
           ...move,
           classification: saved.classification,
           centipawnLoss: saved.centipawnLoss,
+          bestMove: saved.bestMove,
+          bestMoveUci: saved.bestMoveUci,
+          bestLine: saved.bestLine,
+          playedBestMove: saved.playedBestMove,
+          onlyMove: saved.onlyMove,
+          isSacrifice: saved.isSacrifice,
+          evalBefore: saved.evalBefore,
+          evalAfter: saved.evalAfter,
         }
       : move;
   });
@@ -41,9 +53,8 @@ export function SharedReviewReport({
 }) {
   const moves = snapshotMoves(game, snapshot);
   const pairs = toMovePairs(moves);
-  const boardFen = moves.find((move) =>
-    ["mistake", "blunder"].includes(move.classification ?? ""),
-  )?.fenAfter ?? game.initialFen;
+  const evalByPly = evalByPlyFromSnapshot(snapshot);
+  const boardFen = selectReviewFocusFen(moves, game.initialFen);
 
   return (
     <div className="min-h-screen bg-black text-zinc-100">
@@ -99,7 +110,7 @@ export function SharedReviewReport({
             </div>
           </div>
 
-          <EvalGraph moves={moves} evalByPly={{}} currentPly={-1} />
+          <EvalGraph moves={moves} evalByPly={evalByPly} currentPly={-1} />
 
           <div className="overflow-hidden border border-zinc-800 bg-zinc-950">
             <div className="border-b border-zinc-800 px-4 py-3">

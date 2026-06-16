@@ -10,6 +10,7 @@ import {
   toMovePairs,
   type ReviewListMove,
 } from "@/lib/review/review-stats";
+import { buildMoveInsight } from "@/lib/review/move-insight";
 import {
   REVIEW_MOVE_ROW_HEIGHT_PX,
   REVIEW_MOVE_VISIBLE_ROWS,
@@ -77,6 +78,11 @@ export function ReviewMovePanel({
 }) {
   const pairs = toMovePairs(moves);
   const listRef = useRef<HTMLDivElement>(null);
+  const currentMove = moves.find((move) => move.ply === currentPly) ?? null;
+  const insight = buildMoveInsight(currentMove);
+  const insightMeta = currentMove?.classification
+    ? CLASS_META[currentMove.classification]
+    : null;
 
   useEffect(() => {
     const container = listRef.current;
@@ -98,6 +104,54 @@ export function ReviewMovePanel({
 
       <div className="px-5 py-4">
         <EvalGraph moves={moves} evalByPly={evalByPly} currentPly={currentPly} />
+      </div>
+
+      <Separator />
+
+      <div className="px-5 py-4">
+        <section
+          aria-label="Move insight"
+          className="border border-zinc-800 bg-zinc-950 px-3 py-3"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+                Move insight
+              </p>
+              <p className="mt-1 truncate font-mono text-sm font-semibold text-zinc-100">
+                {insight?.moveLabel ?? "No move selected"}
+              </p>
+            </div>
+            {insight && insightMeta ? (
+              <span
+                className={cn(
+                  "inline-flex min-h-6 shrink-0 items-center justify-center rounded px-2 text-[11px] font-black",
+                  insightMeta.badge,
+                  insightMeta.text,
+                )}
+              >
+                {insight.classificationLabel}
+              </span>
+            ) : null}
+          </div>
+
+          <p className="mt-3 text-sm font-medium leading-snug text-zinc-200">
+            {insight?.headline ?? "Select a move from the list."}
+          </p>
+
+          {insight?.details.length ? (
+            <div className="mt-3 grid gap-1.5">
+              {insight.details.map((detail) => (
+                <p
+                  key={detail}
+                  className="font-mono text-[11px] leading-relaxed text-zinc-500"
+                >
+                  {detail}
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </section>
       </div>
 
       <Separator />

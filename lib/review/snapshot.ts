@@ -1,5 +1,5 @@
 import type { ParsedGame } from "@/types/chess";
-import type { MoveClassification } from "@/types/review";
+import type { EngineEvaluation, MoveClassification } from "@/types/review";
 import { createStarterReview } from "@/lib/review/starter-review";
 import {
   buildReviewStats,
@@ -16,6 +16,14 @@ export type ReviewSnapshotMove = {
   fenAfter: string;
   classification?: MoveClassification;
   centipawnLoss?: number;
+  bestMove?: string;
+  bestMoveUci?: string;
+  bestLine?: string[];
+  playedBestMove?: boolean;
+  onlyMove?: boolean;
+  isSacrifice?: boolean;
+  evalBefore?: EngineEvaluation;
+  evalAfter?: EngineEvaluation;
 };
 
 export type ReviewSnapshot = {
@@ -38,6 +46,20 @@ function toSnapshotMove(move: ReviewListMove): ReviewSnapshotMove {
   if (typeof move.centipawnLoss === "number") {
     snapshot.centipawnLoss = move.centipawnLoss;
   }
+  if (move.bestMove) snapshot.bestMove = move.bestMove;
+  if (move.bestMoveUci) snapshot.bestMoveUci = move.bestMoveUci;
+  if (move.bestLine?.length) snapshot.bestLine = [...move.bestLine];
+  if (typeof move.playedBestMove === "boolean") {
+    snapshot.playedBestMove = move.playedBestMove;
+  }
+  if (typeof move.onlyMove === "boolean") {
+    snapshot.onlyMove = move.onlyMove;
+  }
+  if (typeof move.isSacrifice === "boolean") {
+    snapshot.isSacrifice = move.isSacrifice;
+  }
+  if (move.evalBefore) snapshot.evalBefore = move.evalBefore;
+  if (move.evalAfter) snapshot.evalAfter = move.evalAfter;
   return snapshot;
 }
 
@@ -56,9 +78,9 @@ export function averageAccuracy(stats: ReviewStats): number | undefined {
   ) / 10;
 }
 
-export function createReviewSnapshot(game: ParsedGame): ReviewSnapshot {
-  const review = createStarterReview(game);
-  const moves: ReviewListMove[] = review.moves;
+export function createReviewSnapshotFromMoves(
+  moves: ReviewListMove[],
+): ReviewSnapshot {
   const stats = buildReviewStats(moves);
 
   return {
@@ -67,4 +89,39 @@ export function createReviewSnapshot(game: ParsedGame): ReviewSnapshot {
     moves: moves.map(toSnapshotMove),
     blunders: countBlunders(moves),
   };
+}
+
+export function createReviewSnapshot(game: ParsedGame): ReviewSnapshot {
+  const review = createStarterReview(game);
+  const moves: ReviewListMove[] = review.moves;
+  return createReviewSnapshotFromMoves(moves);
+}
+
+export function isReviewSnapshot(value: unknown): value is ReviewSnapshot {
+  if (!value || typeof value !== "object") return false;
+  const snapshot = value as Partial<ReviewSnapshot>;
+  return (
+    snapshot.version === 1 &&
+    Array.isArray(snapshot.moves) &&
+    Boolean(snapshot.stats) &&
+    typeof snapshot.stats === "object" &&
+    typeof snapshot.blunders === "number"
+  );
+}
+
+export function evalByPlyFromSnapshot(
+  snapshot: ReviewSnapshot,
+): Record<number, EngineEvaluation> {
+  const evalByPly: Record<number, EngineEvaluation> = {};
+
+  for (const move of snapshot.moves) {
+    if (move.evalBefore && evalByPly[move.ply - 1] === undefined) {
+      evalByPly[move.ply - 1] = move.evalBefore;
+    }
+    if (move.evalAfter) {
+      evalByPly[move.ply] = move.evalAfter;
+    }
+  }
+
+  return evalByPly;
 }

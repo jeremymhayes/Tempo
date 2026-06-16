@@ -5,14 +5,15 @@ import { CLASS_META } from "@/lib/review/classification-meta";
 import type { ReviewListMove } from "@/lib/review/review-stats";
 
 const CLASSIFICATION_SCORE = {
-  brilliant: 98,
-  great: 92,
-  best: 88,
-  good: 82,
-  book: 90,
-  inaccuracy: 68,
-  miss: 35,
-  mistake: 45,
+  brilliant: 100,
+  great: 98,
+  book: 100,
+  best: 100,
+  excellent: 96,
+  good: 88,
+  inaccuracy: 72,
+  mistake: 55,
+  miss: 45,
   blunder: 18,
 } as const;
 

@@ -3,6 +3,7 @@ import type { ParsedGame, PieceColor } from "@/types/chess";
 import type { ReviewSummary, ReviewedMove } from "@/types/review";
 import type { ReviewSnapshot } from "@/lib/review/snapshot";
 import { createStarterReview } from "@/lib/review/starter-review";
+import { parsePgnForReview } from "@/lib/chess/pgn-review";
 
 export type SavedMoveDto = {
   id: string;
@@ -156,6 +157,29 @@ export function toSavedGameSummary(game: ListGameDto): SavedGameSummary {
 export function toParsedGame(game: SavedGameDetailDto): ParsedGame {
   const result = game.result || "*";
   const datePlayed = toPgnDate(game.playedAt);
+  const parsed = parsePgnForReview(game.pgn);
+
+  if (parsed.ok) {
+    return {
+      ...parsed.game,
+      headers: {
+        ...parsed.game.headers,
+        Event: game.event || parsed.game.headers.Event,
+        Site: game.site || parsed.game.headers.Site,
+        Date: datePlayed || parsed.game.headers.Date,
+        White: game.whiteName || parsed.game.headers.White,
+        Black: game.blackName || parsed.game.headers.Black,
+        Result: result,
+      },
+      white: game.whiteName || parsed.game.white,
+      black: game.blackName || parsed.game.black,
+      result:
+        result === "1-0" || result === "0-1" || result === "1/2-1/2"
+          ? result
+          : "*",
+      datePlayed: datePlayed || parsed.game.datePlayed,
+    };
+  }
 
   return {
     pgn: game.pgn,
@@ -228,6 +252,23 @@ export async function importGameSource(
 
 export async function getSavedGame(id: string): Promise<SavedGameDetailDto> {
   const response = await fetch(`/api/games/${id}`, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return (await response.json()) as SavedGameDetailDto;
+}
+
+export async function saveGameReviewSnapshot(
+  id: string,
+  reviewSnapshot: ReviewSnapshot,
+): Promise<SavedGameDetailDto> {
+  const response = await fetch(`/api/games/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reviewSnapshot }),
+  });
+
   if (!response.ok) {
     throw new Error(await readApiError(response));
   }

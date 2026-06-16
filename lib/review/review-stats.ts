@@ -1,9 +1,18 @@
 import type { GameMove } from "@/types/chess";
-import type { MoveClassification } from "@/types/review";
+import type { EngineEvaluation, MoveClassification } from "@/types/review";
+import { winChanceLoss } from "@/lib/engine/classify";
 
 export type ReviewListMove = GameMove & {
   classification?: MoveClassification;
   centipawnLoss?: number;
+  bestMove?: string;
+  bestMoveUci?: string;
+  bestLine?: string[];
+  playedBestMove?: boolean;
+  onlyMove?: boolean;
+  isSacrifice?: boolean;
+  evalBefore?: EngineEvaluation;
+  evalAfter?: EngineEvaluation;
 };
 
 export type MovePair = {
@@ -28,14 +37,15 @@ export type ReviewStats = {
 };
 
 const CLASSIFICATION_SCORE: Record<MoveClassification, number> = {
-  brilliant: 98,
-  great: 92,
-  best: 88,
-  good: 82,
-  book: 90,
-  inaccuracy: 68,
-  miss: 35,
-  mistake: 45,
+  brilliant: 100,
+  great: 98,
+  book: 100,
+  best: 100,
+  excellent: 96,
+  good: 88,
+  inaccuracy: 72,
+  mistake: 55,
+  miss: 45,
   blunder: 18,
 };
 
@@ -43,6 +53,7 @@ const MOVE_ICON_CLASSES = new Set<MoveClassification>([
   "brilliant",
   "great",
   "mistake",
+  "miss",
   "blunder",
 ]);
 
@@ -55,9 +66,64 @@ function average(values: number[]): number | undefined {
   return roundOne(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
-export function estimateGameRating(accuracy?: number): number | undefined {
+function shouldUseCentipawnAccuracy(classification: MoveClassification): boolean {
+  return !["brilliant", "great", "book"].includes(classification);
+}
+
+function ratingPenalty(
+  counts: Partial<Record<MoveClassification, number>> = {},
+): number {
+  return (
+    (counts.inaccuracy ?? 0) * 20 +
+    (counts.mistake ?? 0) * 55 +
+    (counts.miss ?? 0) * 80 +
+    (counts.blunder ?? 0) * 105
+  );
+}
+
+export function estimateGameRating(
+  accuracy?: number,
+  counts?: Partial<Record<MoveClassification, number>>,
+): number | undefined {
   if (typeof accuracy !== "number") return undefined;
-  return Math.round(600 + accuracy * 12);
+  const base = Math.round(250 + accuracy * 15);
+  return Math.max(100, Math.round(base - ratingPenalty(counts)));
+}
+
+export function moveAccuracyFromLoss(loss: number): number {
+  const boundedLoss = Math.max(0, loss);
+  const accuracy =
+    100 * Math.exp(-0.00216 * boundedLoss - 0.00000101 * boundedLoss ** 2);
+  return roundOne(Math.max(0, Math.min(100, accuracy)));
+}
+
+function moveAccuracyFromWinChanceLoss(loss: number): number {
+  const boundedLoss = Math.max(0, loss);
+  const accuracy = 103.1668 * Math.exp(-0.04354 * boundedLoss) - 3.1669;
+  return roundOne(Math.max(0, Math.min(100, accuracy)));
+}
+
+function moveAccuracy(move: ReviewListMove): number {
+  if (
+    move.classification &&
+    shouldUseCentipawnAccuracy(move.classification) &&
+    move.evalBefore &&
+    move.evalAfter
+  ) {
+    return moveAccuracyFromWinChanceLoss(
+      winChanceLoss(move.evalBefore, move.evalAfter, move.color),
+    );
+  }
+
+  if (
+    move.classification &&
+    typeof move.centipawnLoss === "number" &&
+    shouldUseCentipawnAccuracy(move.classification)
+  ) {
+    return moveAccuracyFromLoss(move.centipawnLoss);
+  }
+
+  return CLASSIFICATION_SCORE[move.classification ?? "good"];
 }
 
 export function shouldShowMoveIcon(
@@ -89,7 +155,7 @@ export function buildReviewStats(moves: ReviewListMove[]): ReviewStats {
     const side = move.color === "w" ? "white" : "black";
     counts[side][move.classification] =
       (counts[side][move.classification] ?? 0) + 1;
-    scores[side].push(CLASSIFICATION_SCORE[move.classification]);
+    scores[side].push(moveAccuracy(move));
   }
 
   const whiteAccuracy = average(scores.white);
@@ -102,8 +168,8 @@ export function buildReviewStats(moves: ReviewListMove[]): ReviewStats {
       black: blackAccuracy,
     },
     rating: {
-      white: estimateGameRating(whiteAccuracy),
-      black: estimateGameRating(blackAccuracy),
+      white: estimateGameRating(whiteAccuracy, counts.white),
+      black: estimateGameRating(blackAccuracy, counts.black),
     },
   };
 }

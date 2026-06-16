@@ -14,6 +14,7 @@ import { createShareToken } from "@/lib/games/share-token";
 import {
   averageAccuracy,
   createReviewSnapshot,
+  isReviewSnapshot,
   type ReviewSnapshot,
 } from "@/lib/review/snapshot";
 
@@ -88,11 +89,17 @@ function toMoveDto(move: GameWithMoves["moves"][number]): SavedMoveDto {
 }
 
 function toReviewSnapshot(value: unknown): ReviewSnapshot | null {
-  if (!value || typeof value !== "object") return null;
-  const snapshot = value as Partial<ReviewSnapshot>;
-  return snapshot.version === 1 && Array.isArray(snapshot.moves)
-    ? (value as ReviewSnapshot)
-    : null;
+  return isReviewSnapshot(value) ? value : null;
+}
+
+export function reviewSnapshotPersistenceFields(snapshot: ReviewSnapshot): {
+  averageAccuracy: number | null;
+  blunders: number;
+} {
+  return {
+    averageAccuracy: averageAccuracy(snapshot.stats) ?? null,
+    blunders: snapshot.blunders,
+  };
 }
 
 export function toListGameDto(game: GameWithMoveCount): ListGameDto {
@@ -198,7 +205,7 @@ export async function createGame(
   const reviewGame = storedGameToParsedGame(parsedGame);
   const opening = deriveOpeningBreakdown(reviewGame.moves);
   const reviewSnapshot = createReviewSnapshot(reviewGame);
-  const reviewAverageAccuracy = averageAccuracy(reviewSnapshot.stats);
+  const reviewFields = reviewSnapshotPersistenceFields(reviewSnapshot);
 
   const game = await prisma.game.create({
     data: {
@@ -214,10 +221,10 @@ export async function createGame(
       openingEco: opening.eco,
       bookExitPly: opening.bookExitPly,
       bookExitMove: opening.bookExitMove,
-      reviewSnapshot: reviewSnapshot as Prisma.InputJsonValue,
+      reviewSnapshot: reviewSnapshot as unknown as Prisma.InputJsonValue,
       reviewSnapshotUpdatedAt: new Date(),
-      averageAccuracy: reviewAverageAccuracy,
-      blunders: reviewSnapshot.blunders,
+      averageAccuracy: reviewFields.averageAccuracy,
+      blunders: reviewFields.blunders,
       shareToken: createShareToken(),
       moves: {
         create: parsedGame.moves.map((move) => ({
@@ -228,6 +235,37 @@ export async function createGame(
           fenAfter: move.fenAfter,
         })),
       },
+    },
+    include: {
+      moves: {
+        orderBy: MOVE_ORDER,
+      },
+    },
+  });
+
+  return toSavedGameDetailDto(game);
+}
+
+export async function updateGameReviewSnapshot(
+  id: string,
+  userId: string,
+  reviewSnapshot: ReviewSnapshot,
+): Promise<SavedGameDetailDto | null> {
+  const prisma = getPrisma();
+  const existing = await prisma.game.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!existing) return null;
+
+  const reviewFields = reviewSnapshotPersistenceFields(reviewSnapshot);
+  const game = await prisma.game.update({
+    where: { id },
+    data: {
+      reviewSnapshot: reviewSnapshot as unknown as Prisma.InputJsonValue,
+      reviewSnapshotUpdatedAt: new Date(),
+      averageAccuracy: reviewFields.averageAccuracy,
+      blunders: reviewFields.blunders,
     },
     include: {
       moves: {

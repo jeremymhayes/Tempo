@@ -8,12 +8,13 @@ const PLACEHOLDER = "—";
 const CLASSIFICATION_STYLE: Record<MoveClassification, string> = {
   brilliant: "text-cyan-400",
   great: "text-sky-400",
+  book: "text-amber-500",
   best: "text-emerald-400",
+  excellent: "text-green-400",
   good: "text-zinc-300",
-  book: "text-zinc-400",
   inaccuracy: "text-yellow-500",
-  miss: "text-rose-500",
   mistake: "text-orange-500",
+  miss: "text-rose-500",
   blunder: "text-red-500",
 };
 
@@ -79,9 +80,9 @@ export function MoveDetails({ move }: { move: ReviewedMove | null }) {
               value={move.centipawnLoss ?? PLACEHOLDER}
             />
             <p className="mt-2 border-t border-zinc-800 pt-2 text-[11px] leading-relaxed text-zinc-600">
-              Classification is derived live from the engine eval swing around
-              this move. TODO: full-game accuracy and brilliant/book detection
-              need a background sweep of every position.
+              Classification uses the deep review when available, including
+              engine eval swing, book context, best-move agreement, and tactic
+              detection.
             </p>
           </>
         )}

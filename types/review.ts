@@ -11,12 +11,13 @@ import type { GameMove } from "./chess";
 export type MoveClassification =
   | "brilliant"
   | "great"
-  | "best"
-  | "good"
   | "book"
+  | "best"
+  | "excellent"
+  | "good"
   | "inaccuracy"
-  | "miss"
   | "mistake"
+  | "miss"
   | "blunder";
 
 /**
@@ -38,6 +39,16 @@ export interface EngineEvaluation {
 export interface ReviewedMove extends GameMove {
   /** Engine's preferred move in SAN, if different from what was played. */
   bestMove?: string;
+  /** Engine's preferred move in UCI, useful for exact played-vs-best checks. */
+  bestMoveUci?: string;
+  /** Short SAN principal variation from the position before this move. */
+  bestLine?: string[];
+  /** Whether the played move exactly matched the engine's top UCI move. */
+  playedBestMove?: boolean;
+  /** True when MultiPV alternatives show this was the only clean engine move. */
+  onlyMove?: boolean;
+  /** True when the played move appears to offer material on an attacked square. */
+  isSacrifice?: boolean;
   evalBefore?: EngineEvaluation;
   evalAfter?: EngineEvaluation;
   /** Centipawns lost versus the best move (>= 0). */

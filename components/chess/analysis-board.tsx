@@ -11,15 +11,19 @@ const LIGHT = "#e8edd0";
 const DARK = "#6f9b4f";
 const LAST_MOVE = "rgba(245, 209, 66, 0.42)";
 const BEST_ARROW = "rgba(56, 189, 120, 0.9)";
+const SQUARE_SIZE = 12.5;
+
+export const CLASSIFICATION_BADGE_SIZE_CLASS =
+  "size-[clamp(24px,4.5cqw,45px)] text-[clamp(12px,2.25cqw,20px)]";
 
 type Squares = { from: string; to: string };
 
-function squareCenter(square: string, orientation: PieceColor) {
+export function getClassificationBadgeAnchor(square: string, orientation: PieceColor) {
   const file = square.charCodeAt(0) - 97;
   const rank = Number(square[1]);
   const col = orientation === "b" ? 7 - file : file;
   const rowFromTop = orientation === "b" ? rank - 1 : 8 - rank;
-  return { left: col * 12.5 + 6.25, top: rowFromTop * 12.5 + 6.25 };
+  return { left: (col + 1) * SQUARE_SIZE, top: rowFromTop * SQUARE_SIZE };
 }
 
 export function AnalysisBoard({
@@ -53,7 +57,10 @@ export function AnalysisBoard({
 
   const badge =
     classification && lastMove
-      ? { pos: squareCenter(lastMove.to, orientation), meta: CLASS_META[classification] }
+      ? {
+          pos: getClassificationBadgeAnchor(lastMove.to, orientation),
+          meta: CLASS_META[classification],
+        }
       : null;
 
   return (
@@ -82,7 +89,8 @@ export function AnalysisBoard({
         >
           <span
             className={cn(
-              "flex size-[clamp(18px,3.4cqw,34px)] items-center justify-center rounded-full border-2 border-white/85 text-[clamp(9px,1.7cqw,15px)] font-black leading-none shadow-lg shadow-black/40",
+              "flex items-center justify-center rounded-full border-2 border-white/85 font-black leading-none shadow-lg shadow-black/40",
+              CLASSIFICATION_BADGE_SIZE_CLASS,
               badge.meta.badge,
               badge.meta.text,
             )}

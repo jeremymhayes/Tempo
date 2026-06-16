@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import {
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { ParsedGame, PieceColor } from "@/types/chess";
 import type { ReviewedMove } from "@/types/review";
+import { saveGameReviewSnapshot } from "@/lib/api/games";
 import {
   deriveOpeningBreakdown,
   type OpeningBreakdown,
@@ -44,7 +45,11 @@ import {
   buildReviewStats,
   type ReviewListMove,
 } from "@/lib/review/review-stats";
-import type { ReviewSnapshot } from "@/lib/review/snapshot";
+import {
+  createReviewSnapshotFromMoves,
+  type ReviewSnapshot,
+} from "@/lib/review/snapshot";
+import { shouldShowBestMoveHint } from "@/lib/review/best-move-hint";
 import { buildEngineReviewedMoves } from "@/lib/review/deep-analysis";
 import { useDeepReviewAnalysis } from "@/lib/review/use-deep-review-analysis";
 import { AnalysisBoard } from "@/components/chess/analysis-board";
@@ -61,6 +66,8 @@ const RESULT_LABEL: Record<string, string> = {
   "1/2-1/2": "Draw",
   "*": "Game in progress",
 };
+
+const EMPTY_REVIEWED_MOVES: ReviewedMove[] = [];
 
 function useBoxSize<T extends HTMLElement>() {
   const [node, setNode] = useState<T | null>(null);
@@ -111,6 +118,7 @@ export function ReviewClient({
     Record<number, WhiteScore>
   >({});
   const [boardAreaRef, boardArea] = useBoxSize<HTMLDivElement>();
+  const persistedReviewKey = useRef<string | null>(null);
 
   const updateSettings = useCallback((patch: Partial<AnalysisSettings>) => {
     setSettings((prev) => {
@@ -135,13 +143,21 @@ export function ReviewClient({
               ...move,
               classification: snapshot.classification,
               centipawnLoss: snapshot.centipawnLoss,
+              bestMove: snapshot.bestMove,
+              bestMoveUci: snapshot.bestMoveUci,
+              bestLine: snapshot.bestLine,
+              playedBestMove: snapshot.playedBestMove,
+              onlyMove: snapshot.onlyMove,
+              isSacrifice: snapshot.isSacrifice,
+              evalBefore: snapshot.evalBefore,
+              evalAfter: snapshot.evalAfter,
             }
           : move;
       }),
       summary: null,
     };
   }, [game, initialReviewSnapshot]);
-  const reviewedMoves = review?.moves ?? [];
+  const reviewedMoves = review?.moves ?? EMPTY_REVIEWED_MOVES;
   const deepReview = useDeepReviewAnalysis(game);
   const displayEvalByPly = useMemo(
     () => ({ ...deepReview.evalByPly, ...liveEvalByPly }),
@@ -151,6 +167,27 @@ export function ReviewClient({
     () => (game ? (initialOpening ?? deriveOpeningBreakdown(game.moves)) : null),
     [game, initialOpening],
   );
+  const classifiedMoves = useMemo<ReviewListMove[]>(() => {
+    if (!game || deepReview.status !== "ready") return reviewedMoves;
+
+    return buildEngineReviewedMoves(
+      deepReview.moves.length > 0 ? deepReview.moves : reviewedMoves,
+      deepReview.evalByPly,
+      {
+        bookLastPly: opening?.bookLastPly ?? null,
+        analysisByPly: deepReview.analysisByPly,
+      },
+    );
+  }, [
+    game,
+    deepReview.status,
+    deepReview.moves,
+    deepReview.evalByPly,
+    deepReview.analysisByPly,
+    reviewedMoves,
+    opening?.bookLastPly,
+  ]);
+  const stats = useMemo(() => buildReviewStats(classifiedMoves), [classifiedMoves]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -211,6 +248,35 @@ export function ReviewClient({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [game, goPrev, goNext, goStart, goEnd]);
+
+  useEffect(() => {
+    if (
+      !gameId ||
+      !game ||
+      deepReview.status !== "ready" ||
+      classifiedMoves.length === 0
+    ) {
+      return;
+    }
+
+    const snapshot = createReviewSnapshotFromMoves(classifiedMoves);
+    const key = [
+      gameId,
+      snapshot.moves.length,
+      snapshot.stats.accuracy.white ?? "",
+      snapshot.stats.accuracy.black ?? "",
+      snapshot.blunders,
+    ].join(":");
+    if (persistedReviewKey.current === key) return;
+
+    persistedReviewKey.current = key;
+    void saveGameReviewSnapshot(gameId, snapshot).catch((error) => {
+      if (persistedReviewKey.current === key) {
+        persistedReviewKey.current = null;
+      }
+      console.error("Failed to save engine review snapshot:", error);
+    });
+  }, [gameId, game, deepReview.status, classifiedMoves]);
 
   if (!loaded) {
     return (
@@ -294,6 +360,7 @@ export function ReviewClient({
   const liveWhiteScore: WhiteScore | null = liveUpdate?.lines[0]
     ? toWhitePov(liveUpdate.lines[0].score, sideToMove)
     : (displayEvalByPly[ply] ?? null);
+  const openingBreakdown = opening ?? deriveOpeningBreakdown(game.moves);
 
   const bestArrow = (() => {
     if (!settings.showBestMove) return null;
@@ -303,18 +370,11 @@ export function ReviewClient({
     return sq ? { from: sq.from, to: sq.to } : null;
   })();
 
-  const classifiedMoves: ReviewListMove[] = buildEngineReviewedMoves(
-    deepReview.moves.length > 0 ? deepReview.moves : reviewedMoves,
-    deepReview.evalByPly,
-  );
-
   const currentMove = ply >= 0 ? (classifiedMoves[ply] as ReviewedMove) : null;
   const currentClass = currentMove?.classification ?? null;
   const boardSide = Math.max(0, Math.min(boardArea.w - 46, boardArea.h - 94));
   const whiteName = formatPlayer(game.white, "White");
   const blackName = formatPlayer(game.black, "Black");
-  const stats = buildReviewStats(classifiedMoves);
-  const openingBreakdown = opening ?? deriveOpeningBreakdown(game.moves);
   const panelMode = ply <= START_PLY ? "summary" : "moves";
 
   return (
@@ -509,6 +569,14 @@ function BoardFooter({
               {meta.symbol}
             </span>
             {meta.label}
+          </span>
+        ) : null}
+        {shouldShowBestMoveHint(currentMove) ? (
+          <span className="hidden max-w-44 truncate text-xs font-semibold text-zinc-500 sm:inline">
+            Best:{" "}
+            <span className="font-mono text-zinc-300">
+              {currentMove?.bestMove}
+            </span>
           </span>
         ) : null}
         <div className="flex items-center">

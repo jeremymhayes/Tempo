@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { GameMove, ParsedGame } from "@/types/chess";
-import type { SavedGameSummary } from "@/lib/api/games";
+import type { SavedGameDetailDto, SavedGameSummary } from "@/lib/api/games";
+import { toParsedGame } from "@/lib/api/games";
 import { deriveOpeningBreakdown } from "@/lib/chess/openings";
 import { filterSavedGameSummaries } from "@/lib/games/filters";
+import { reviewSnapshotPersistenceFields } from "@/lib/games/queries";
 import { createShareToken, isValidShareToken } from "@/lib/games/share-token";
-import { createReviewSnapshot } from "@/lib/review/snapshot";
+import {
+  createReviewSnapshot,
+  createReviewSnapshotFromMoves,
+  evalByPlyFromSnapshot,
+  isReviewSnapshot,
+} from "@/lib/review/snapshot";
+import { selectReviewFocusFen } from "@/lib/review/report-focus";
 
 function move(ply: number, san: string, color: "w" | "b"): GameMove {
   return {
@@ -135,10 +143,165 @@ describe("review snapshots", () => {
 
     assert.equal(snapshot.version, 1);
     assert.equal(snapshot.moves.length, 6);
-    assert.equal(snapshot.stats.accuracy.white, 90);
-    assert.equal(snapshot.stats.rating.white, 1680);
+    assert.equal(snapshot.stats.accuracy.white, 100);
+    assert.equal(snapshot.stats.rating.white, 1750);
     assert.equal(snapshot.blunders, 0);
     assert.equal(snapshot.moves[0].classification, "book");
+  });
+
+  it("captures engine-backed review details in a serializable snapshot", () => {
+    const snapshot = createReviewSnapshotFromMoves([
+      {
+        ...move(0, "e4", "w"),
+        classification: "excellent",
+        centipawnLoss: 15,
+        bestMove: "d4",
+        bestMoveUci: "d2d4",
+        bestLine: ["d4", "d5", "c4"],
+        playedBestMove: false,
+        isSacrifice: false,
+        evalBefore: { type: "cp", value: 20, depth: 16 },
+        evalAfter: { type: "cp", value: 5, depth: 16 },
+      },
+      {
+        ...move(1, "Nf6", "b"),
+        classification: "blunder",
+        centipawnLoss: 450,
+        bestMove: "Qf6",
+        bestMoveUci: "d8f6",
+        bestLine: ["Qf6", "Qxf6"],
+        playedBestMove: false,
+        evalBefore: { type: "cp", value: 5, depth: 16 },
+        evalAfter: { type: "cp", value: 455, depth: 16 },
+      },
+    ]);
+
+    assert.equal(snapshot.version, 1);
+    assert.equal(snapshot.stats.counts.white.excellent, 1);
+    assert.equal(snapshot.stats.counts.black.blunder, 1);
+    assert.equal(snapshot.blunders, 1);
+    assert.equal(snapshot.moves[0].bestMove, "d4");
+    assert.equal(snapshot.moves[0].bestMoveUci, "d2d4");
+    assert.deepEqual(snapshot.moves[0].bestLine, ["d4", "d5", "c4"]);
+    assert.equal(snapshot.moves[0].playedBestMove, false);
+    assert.equal(snapshot.moves[0].evalBefore?.value, 20);
+    assert.equal(snapshot.moves[1].evalAfter?.value, 455);
+    assert.equal(isReviewSnapshot(snapshot), true);
+    assert.equal(isReviewSnapshot({ version: 1, moves: "bad" }), false);
+  });
+
+  it("builds eval graph data from a persisted review snapshot", () => {
+    const snapshot = createReviewSnapshotFromMoves([
+      {
+        ...move(0, "e4", "w"),
+        classification: "best",
+        evalBefore: { type: "cp", value: 10 },
+        evalAfter: { type: "cp", value: 20 },
+      },
+      {
+        ...move(1, "e5", "b"),
+        classification: "best",
+        evalBefore: { type: "cp", value: 20 },
+        evalAfter: { type: "cp", value: 12 },
+      },
+    ]);
+
+    assert.deepEqual(evalByPlyFromSnapshot(snapshot), {
+      [-1]: { type: "cp", value: 10 },
+      0: { type: "cp", value: 20 },
+      1: { type: "cp", value: 12 },
+    });
+  });
+
+  it("derives saved-game aggregate fields from an engine snapshot", () => {
+    const snapshot = createReviewSnapshotFromMoves([
+      { ...move(0, "e4", "w"), classification: "best", centipawnLoss: 0 },
+      {
+        ...move(1, "Nf6", "b"),
+        classification: "blunder",
+        centipawnLoss: 450,
+      },
+    ]);
+
+    assert.deepEqual(reviewSnapshotPersistenceFields(snapshot), {
+      averageAccuracy: 65.4,
+      blunders: 1,
+    });
+  });
+
+  it("selects the most instructive shared-report board position", () => {
+    assert.equal(
+      selectReviewFocusFen(
+        [
+          { ...move(0, "e4", "w"), classification: "mistake" },
+          { ...move(1, "Nf6", "b"), classification: "miss" },
+          { ...move(2, "Qh5", "w"), classification: "blunder" },
+        ],
+        "start",
+      ),
+      "fen-2",
+    );
+    assert.equal(
+      selectReviewFocusFen(
+        [
+          { ...move(0, "e4", "w"), classification: "best" },
+          { ...move(1, "Nf6", "b"), classification: "miss" },
+        ],
+        "start",
+      ),
+      "fen-1",
+    );
+    assert.equal(
+      selectReviewFocusFen(
+        [{ ...move(0, "e4", "w"), classification: "best" }],
+        "start",
+      ),
+      "start",
+    );
+  });
+});
+
+describe("saved game parsing", () => {
+  it("reconstructs full move metadata from saved PGN for engine comparison", () => {
+    const saved: SavedGameDetailDto = {
+      id: "game-1",
+      userId: "user-1",
+      pgn: "1. e4 e5 2. Nf3 Nc6 *",
+      whiteName: "White",
+      blackName: "Black",
+      result: "*",
+      event: null,
+      site: null,
+      playedAt: null,
+      openingName: null,
+      openingEco: null,
+      bookExitPly: null,
+      bookExitMove: null,
+      reviewSnapshot: null,
+      reviewSnapshotUpdatedAt: null,
+      shareToken: null,
+      shareEnabled: false,
+      createdAt: "2026-06-16T00:00:00.000Z",
+      updatedAt: "2026-06-16T00:00:00.000Z",
+      moves: [
+        {
+          id: "m1",
+          moveNumber: 1,
+          color: "w",
+          san: "e4",
+          fenBefore: "",
+          fenAfter: "",
+        },
+      ],
+    };
+
+    const parsed = toParsedGame(saved);
+
+    assert.equal(parsed.moves[0].lan, "e2e4");
+    assert.equal(parsed.moves[0].from, "e2");
+    assert.equal(parsed.moves[0].to, "e4");
+    assert.equal(parsed.moves[1].lan, "e7e5");
+    assert.equal(parsed.moves[2].lan, "g1f3");
   });
 });
 

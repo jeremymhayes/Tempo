@@ -8,15 +8,19 @@ import { createEngine } from "@/lib/engine";
 import {
   fenSideToMove,
   toWhitePov,
-  type WhiteScore,
 } from "@/lib/engine/eval-format";
 import {
   buildEngineReviewedMoves,
+  evalByPlyFromAnalysis,
   REVIEW_ENGINE_DEPTH,
+  REVIEW_ENGINE_MULTI_PV,
   REVIEW_ENGINE_SKILL,
   terminalWhiteScore,
+  type ReviewAnalysisByPly,
+  type ReviewPositionAnalysis,
   type ReviewEvalByPly,
 } from "@/lib/review/deep-analysis";
+import { uciLineToSan, uciToSan } from "@/lib/engine/san";
 
 type ReviewAnalysisStatus =
   | "idle"
@@ -30,6 +34,7 @@ export type DeepReviewAnalysisState = {
   current: number;
   total: number;
   evalByPly: ReviewEvalByPly;
+  analysisByPly: ReviewAnalysisByPly;
   moves: ReviewedMove[];
   error: string | null;
 };
@@ -39,6 +44,7 @@ const INITIAL_STATE: DeepReviewAnalysisState = {
   current: 0,
   total: 0,
   evalByPly: {},
+  analysisByPly: {},
   moves: [],
   error: null,
 };
@@ -47,9 +53,9 @@ function analyzePosition(
   engine: AnalysisEngine,
   fen: string,
   options: AnalyzeOptions,
-): Promise<WhiteScore> {
+): Promise<ReviewPositionAnalysis> {
   const terminalScore = terminalWhiteScore(fen);
-  if (terminalScore) return Promise.resolve(terminalScore);
+  if (terminalScore) return Promise.resolve({ score: terminalScore });
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -63,7 +69,27 @@ function analyzePosition(
           return;
         }
         settled = true;
-        resolve(toWhitePov(line.score, fenSideToMove(fen)));
+        const sideToMove = fenSideToMove(fen);
+        const bestMove = update.bestMove ?? line.pv[0] ?? null;
+        resolve({
+          score: toWhitePov(line.score, sideToMove),
+          bestMove,
+          bestMoveSan: bestMove ? uciToSan(fen, bestMove) : null,
+          bestLineSan: uciLineToSan(fen, line.pv, 6),
+          candidateMoves: update.lines.flatMap((candidate) => {
+            const move = candidate.pv[0];
+            if (!move) return [];
+            return [
+              {
+                move,
+                san: uciToSan(fen, move),
+                score: toWhitePov(candidate.score, sideToMove),
+                depth: candidate.depth,
+              },
+            ];
+          }),
+          depth: update.depth,
+        });
       });
     } catch (error) {
       reject(error);
@@ -101,34 +127,40 @@ export function useDeepReviewAnalysis(game: ParsedGame | null) {
         await engine.init();
         if (cancelled) return;
 
-        const evalByPly: ReviewEvalByPly = {};
+        const analysisByPly: ReviewAnalysisByPly = {};
         setState((prev) => ({ ...prev, status: "analyzing" }));
 
         for (const [index, position] of positions.entries()) {
-          const score = await analyzePosition(engine, position.fen, {
+          const analysis = await analyzePosition(engine, position.fen, {
             depth: REVIEW_ENGINE_DEPTH,
-            multiPV: 1,
+            multiPV: REVIEW_ENGINE_MULTI_PV,
             skill: REVIEW_ENGINE_SKILL,
           });
           if (cancelled) return;
 
-          evalByPly[position.ply] = score;
+          analysisByPly[position.ply] = analysis;
+          const evalByPly = evalByPlyFromAnalysis(analysisByPly);
           setState((prev) => ({
             ...prev,
             status: "analyzing",
             current: index + 1,
             total: positions.length,
-            evalByPly: { ...evalByPly },
+            evalByPly,
+            analysisByPly: { ...analysisByPly },
           }));
         }
 
         if (cancelled) return;
+        const evalByPly = evalByPlyFromAnalysis(analysisByPly);
         setState({
           status: "ready",
           current: positions.length,
           total: positions.length,
           evalByPly,
-          moves: buildEngineReviewedMoves(targetGame.moves, evalByPly),
+          analysisByPly,
+          moves: buildEngineReviewedMoves(targetGame.moves, evalByPly, {
+            analysisByPly,
+          }),
           error: null,
         });
       } catch (error) {

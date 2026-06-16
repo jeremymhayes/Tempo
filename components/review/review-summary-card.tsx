@@ -1,29 +1,6 @@
 import type { MoveClassification, ReviewSummary } from "@/types/review";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-const CLASSIFICATION_LABEL: Record<MoveClassification, string> = {
-  brilliant: "Brilliant",
-  great: "Great",
-  best: "Best",
-  good: "Good",
-  book: "Book",
-  inaccuracy: "Inaccuracy",
-  miss: "Miss",
-  mistake: "Mistake",
-  blunder: "Blunder",
-};
-
-const ORDER: MoveClassification[] = [
-  "brilliant",
-  "great",
-  "best",
-  "good",
-  "book",
-  "inaccuracy",
-  "miss",
-  "mistake",
-  "blunder",
-];
+import { CLASS_META, CLASS_ORDER } from "@/lib/review/classification-meta";
 
 function formatAccuracy(value: number | undefined): string {
   return typeof value === "number" ? `${value}%` : "--";
@@ -36,7 +13,7 @@ function CountList({
   label: string;
   counts: Partial<Record<MoveClassification, number>>;
 }) {
-  const populated = ORDER.filter((classification) => counts[classification]);
+  const populated = CLASS_ORDER.filter((classification) => counts[classification]);
 
   return (
     <div>
@@ -50,7 +27,7 @@ function CountList({
               key={classification}
               className="rounded border border-zinc-800 px-1.5 py-0.5 text-xs text-zinc-300"
             >
-              {CLASSIFICATION_LABEL[classification]} {counts[classification]}
+              {CLASS_META[classification].label} {counts[classification]}
             </span>
           ))}
         </div>

@@ -32,9 +32,7 @@ export function ReviewSummaryPanel({
   evalByPly: Record<number, WhiteScore>;
   opening: OpeningBreakdown;
 }) {
-  const rows = CLASS_ORDER.filter((key) =>
-    ["brilliant", "great", "best", "mistake", "blunder"].includes(key),
-  );
+  const rows = CLASS_ORDER;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
