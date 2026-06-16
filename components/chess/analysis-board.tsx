@@ -14,12 +14,12 @@ const BEST_ARROW = "rgba(56, 189, 120, 0.9)";
 
 type Squares = { from: string; to: string };
 
-function squareCorner(square: string, orientation: PieceColor) {
+function squareCenter(square: string, orientation: PieceColor) {
   const file = square.charCodeAt(0) - 97;
   const rank = Number(square[1]);
   const col = orientation === "b" ? 7 - file : file;
   const rowFromTop = orientation === "b" ? rank - 1 : 8 - rank;
-  return { left: (col + 1) * 12.5, top: rowFromTop * 12.5 };
+  return { left: col * 12.5 + 6.25, top: rowFromTop * 12.5 + 6.25 };
 }
 
 export function AnalysisBoard({
@@ -53,7 +53,7 @@ export function AnalysisBoard({
 
   const badge =
     classification && lastMove
-      ? { pos: squareCorner(lastMove.to, orientation), meta: CLASS_META[classification] }
+      ? { pos: squareCenter(lastMove.to, orientation), meta: CLASS_META[classification] }
       : null;
 
   return (
@@ -63,6 +63,7 @@ export function AnalysisBoard({
           position: fen,
           boardOrientation: orientation === "b" ? "black" : "white",
           allowDragging: false,
+          allowDrawingArrows: false,
           showAnimations: true,
           animationDurationInMs: 160,
           squareStyles,
