@@ -7,7 +7,7 @@
     "prebuild": "prisma generate",
     "build": "next build",
     "prisma:generate": "prisma generate",
-    "test": "node --import tsx --test tests/pgn-record.test.ts tests/auth.test.ts tests/email-verification.test.ts tests/guest-review.test.ts tests/review-stats.test.ts tests/game-features.test.ts tests/practice.test.ts tests/game-source.test.ts tests/analysis-board.test.ts tests/review-engine-analysis.test.ts tests/server-analysis-config.test.ts tests/server-stockfish-engine.test.ts",
+    "test": "node --import tsx --test tests/pgn-record.test.ts tests/auth.test.ts tests/email-verification.test.ts tests/guest-review.test.ts tests/review-stats.test.ts tests/game-features.test.ts tests/practice.test.ts tests/game-source.test.ts tests/analysis-board.test.ts tests/review-engine-analysis.test.ts tests/review-analysis-api.test.ts tests/server-analysis-config.test.ts tests/server-stockfish-engine.test.ts",
     "start": "next start",
     "lint": "eslint"
   },

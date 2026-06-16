@@ -1,6 +1,8 @@
 import type { ParsedGame } from "@/types/chess";
 import type { ReviewAnalysisResult } from "@/lib/review/engine-analysis";
 
+const inFlightServerAnalyses = new Map<string, Promise<ReviewAnalysisResult>>();
+
 async function readApiError(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as {
@@ -19,6 +21,23 @@ async function readApiError(response: Response): Promise<string> {
 }
 
 export async function analyzeGameOnServer(
+  game: ParsedGame,
+): Promise<ReviewAnalysisResult> {
+  const key = game.pgn;
+  const existing = inFlightServerAnalyses.get(key);
+  if (existing) return existing;
+
+  const request = requestServerAnalysis(game).finally(() => {
+    if (inFlightServerAnalyses.get(key) === request) {
+      inFlightServerAnalyses.delete(key);
+    }
+  });
+  inFlightServerAnalyses.set(key, request);
+
+  return request;
+}
+
+async function requestServerAnalysis(
   game: ParsedGame,
 ): Promise<ReviewAnalysisResult> {
   const response = await fetch("/api/review/analyze", {
