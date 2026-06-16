@@ -3,31 +3,27 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ParsedGame } from "@/types/chess";
 import type { ReviewedMove } from "@/types/review";
-import type { AnalysisEngine, AnalyzeOptions } from "@/lib/engine/types";
 import { createEngine } from "@/lib/engine";
+import { analyzeGameOnServer } from "@/lib/api/review-analysis";
 import {
-  fenSideToMove,
-  toWhitePov,
-} from "@/lib/engine/eval-format";
-import {
-  buildEngineReviewedMoves,
-  evalByPlyFromAnalysis,
-  REVIEW_ENGINE_DEPTH,
-  REVIEW_ENGINE_MULTI_PV,
-  REVIEW_ENGINE_SKILL,
-  terminalWhiteScore,
   type ReviewAnalysisByPly,
-  type ReviewPositionAnalysis,
   type ReviewEvalByPly,
 } from "@/lib/review/deep-analysis";
-import { uciLineToSan, uciToSan } from "@/lib/engine/san";
+import {
+  analyzeGameWithEngine,
+  defaultReviewAnalyzeOptions,
+  getReviewPositions,
+} from "@/lib/review/engine-analysis";
 
 type ReviewAnalysisStatus =
   | "idle"
+  | "loading-server"
   | "loading-engine"
   | "analyzing"
   | "ready"
   | "error";
+
+type ReviewAnalysisSource = "server" | "browser" | null;
 
 export type DeepReviewAnalysisState = {
   status: ReviewAnalysisStatus;
@@ -37,6 +33,7 @@ export type DeepReviewAnalysisState = {
   analysisByPly: ReviewAnalysisByPly;
   moves: ReviewedMove[];
   error: string | null;
+  source: ReviewAnalysisSource;
 };
 
 const INITIAL_STATE: DeepReviewAnalysisState = {
@@ -47,55 +44,8 @@ const INITIAL_STATE: DeepReviewAnalysisState = {
   analysisByPly: {},
   moves: [],
   error: null,
+  source: null,
 };
-
-function analyzePosition(
-  engine: AnalysisEngine,
-  fen: string,
-  options: AnalyzeOptions,
-): Promise<ReviewPositionAnalysis> {
-  const terminalScore = terminalWhiteScore(fen);
-  if (terminalScore) return Promise.resolve({ score: terminalScore });
-
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    try {
-      engine.analyze(fen, options, (update) => {
-        if (!update.done || settled) return;
-        const line = update.lines[0];
-        if (!line?.score) {
-          settled = true;
-          reject(new Error("Stockfish did not return an evaluation."));
-          return;
-        }
-        settled = true;
-        const sideToMove = fenSideToMove(fen);
-        const bestMove = update.bestMove ?? line.pv[0] ?? null;
-        resolve({
-          score: toWhitePov(line.score, sideToMove),
-          bestMove,
-          bestMoveSan: bestMove ? uciToSan(fen, bestMove) : null,
-          bestLineSan: uciLineToSan(fen, line.pv, 6),
-          candidateMoves: update.lines.flatMap((candidate) => {
-            const move = candidate.pv[0];
-            if (!move) return [];
-            return [
-              {
-                move,
-                san: uciToSan(fen, move),
-                score: toWhitePov(candidate.score, sideToMove),
-                depth: candidate.depth,
-              },
-            ];
-          }),
-          depth: update.depth,
-        });
-      });
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
 
 export function useDeepReviewAnalysis(game: ParsedGame | null) {
   const [state, setState] = useState<DeepReviewAnalysisState>(INITIAL_STATE);
@@ -109,59 +59,80 @@ export function useDeepReviewAnalysis(game: ParsedGame | null) {
 
     const targetGame = game;
     let cancelled = false;
-    let engine: AnalysisEngine | null = null;
-    const positions = [
-      { ply: -1, fen: targetGame.initialFen },
-      ...targetGame.moves.map((move) => ({ ply: move.ply, fen: move.fenAfter })),
-    ];
+    let engine: ReturnType<typeof createEngine> | null = null;
+    const positions = getReviewPositions(targetGame);
 
     async function run() {
       setState({
         ...INITIAL_STATE,
-        status: "loading-engine",
+        status: "loading-server",
         total: positions.length,
+        source: "server",
       });
 
       try {
+        const serverResult = await analyzeGameOnServer(targetGame);
+        if (cancelled) return;
+
+        setState({
+          status: "ready",
+          current: serverResult.current,
+          total: serverResult.total,
+          evalByPly: serverResult.evalByPly,
+          analysisByPly: serverResult.analysisByPly,
+          moves: serverResult.moves,
+          error: null,
+          source: "server",
+        });
+        return;
+      } catch (serverError) {
+        if (cancelled) return;
+        console.info(
+          "Server review analysis unavailable; falling back to browser Stockfish:",
+          serverError,
+        );
+      }
+
+      try {
+        setState({
+          ...INITIAL_STATE,
+          status: "loading-engine",
+          total: positions.length,
+          source: "browser",
+        });
+
         engine = createEngine("stockfish");
         await engine.init();
         if (cancelled) return;
 
-        const analysisByPly: ReviewAnalysisByPly = {};
         setState((prev) => ({ ...prev, status: "analyzing" }));
 
-        for (const [index, position] of positions.entries()) {
-          const analysis = await analyzePosition(engine, position.fen, {
-            depth: REVIEW_ENGINE_DEPTH,
-            multiPV: REVIEW_ENGINE_MULTI_PV,
-            skill: REVIEW_ENGINE_SKILL,
-          });
-          if (cancelled) return;
-
-          analysisByPly[position.ply] = analysis;
-          const evalByPly = evalByPlyFromAnalysis(analysisByPly);
-          setState((prev) => ({
-            ...prev,
-            status: "analyzing",
-            current: index + 1,
-            total: positions.length,
-            evalByPly,
-            analysisByPly: { ...analysisByPly },
-          }));
-        }
-
+        const browserResult = await analyzeGameWithEngine(targetGame, engine, {
+          analyzeOptions: defaultReviewAnalyzeOptions(),
+          onProgress: ({ current, total, evalByPly, analysisByPly }) => {
+            if (cancelled) return;
+            setState((prev) => ({
+              ...prev,
+              status: "analyzing",
+              current,
+              total,
+              evalByPly,
+              analysisByPly,
+              source: "browser",
+            }));
+          },
+        });
         if (cancelled) return;
-        const evalByPly = evalByPlyFromAnalysis(analysisByPly);
+
         setState({
           status: "ready",
-          current: positions.length,
-          total: positions.length,
-          evalByPly,
-          analysisByPly,
-          moves: buildEngineReviewedMoves(targetGame.moves, evalByPly, {
-            analysisByPly,
-          }),
+          current: browserResult.current,
+          total: browserResult.total,
+          evalByPly: browserResult.evalByPly,
+          analysisByPly: browserResult.analysisByPly,
+          moves: browserResult.moves,
           error: null,
+          source: "browser",
         });
       } catch (error) {
         if (cancelled) return;
@@ -173,6 +144,7 @@ export function useDeepReviewAnalysis(game: ParsedGame | null) {
             error instanceof Error
               ? error.message
               : "Stockfish analysis failed.",
+          source: "browser",
         });
       }
     }

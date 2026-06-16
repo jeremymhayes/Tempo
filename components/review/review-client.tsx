@@ -329,8 +329,9 @@ export function ReviewClient({
             ) : (
               <>
                 <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-                  Tempo is evaluating every position at depth 16 and Stockfish
-                  skill 20 before showing classifications.
+                  {deepReview.source === "server"
+                    ? "Your Tempo server is evaluating every position with Stockfish before showing classifications."
+                    : "Tempo is using the browser Stockfish fallback to evaluate every position before showing classifications."}
                 </p>
                 <div className="mt-5 h-2 overflow-hidden rounded-full bg-zinc-800">
                   <div
