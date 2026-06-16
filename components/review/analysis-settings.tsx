@@ -2,7 +2,14 @@
 
 import type { ReactNode } from "react";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   SETTINGS_BOUNDS,
@@ -46,12 +53,19 @@ export function AnalysisSettingsPanel({
         control={
           <Select
             value={settings.mode}
-            onChange={(e) =>
-              onChange({ mode: e.target.value as AnalysisSettings["mode"] })
+            onValueChange={(mode) =>
+              onChange({ mode: mode as AnalysisSettings["mode"] })
             }
           >
-            <option value="depth">Depth</option>
-            <option value="time">Time</option>
+            <SelectTrigger className="w-full" aria-label="Limit by">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="depth">Depth</SelectItem>
+                <SelectItem value="time">Time</SelectItem>
+              </SelectGroup>
+            </SelectContent>
           </Select>
         }
       />
@@ -95,16 +109,23 @@ export function AnalysisSettingsPanel({
         control={
           <Select
             value={String(settings.multiPV)}
-            onChange={(e) => onChange({ multiPV: Number(e.target.value) })}
+            onValueChange={(multiPV) => onChange({ multiPV: Number(multiPV) })}
           >
-            {Array.from(
-              { length: b.multiPV.max - b.multiPV.min + 1 },
-              (_, i) => b.multiPV.min + i,
-            ).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
+            <SelectTrigger className="w-full" aria-label="Lines (MultiPV)">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {Array.from(
+                  { length: b.multiPV.max - b.multiPV.min + 1 },
+                  (_, i) => b.multiPV.min + i,
+                ).map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
           </Select>
         }
       />

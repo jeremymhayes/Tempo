@@ -1,6 +1,13 @@
 "use client";
 
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ENGINES } from "@/lib/engine/registry";
 import type { EngineId } from "@/lib/engine/types";
 
@@ -14,15 +21,25 @@ export function EngineSelector({
   return (
     <Select
       value={value}
-      onChange={(e) => onChange(e.target.value as EngineId)}
-      aria-label="Analysis engine"
+      onValueChange={(id) => onChange(id as EngineId)}
     >
-      {ENGINES.map((engine) => (
-        <option key={engine.id} value={engine.id} disabled={!engine.available}>
-          {engine.name}
-          {engine.available ? "" : " — unavailable"}
-        </option>
-      ))}
+      <SelectTrigger aria-label="Analysis engine">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {ENGINES.map((engine) => (
+            <SelectItem
+              key={engine.id}
+              value={engine.id}
+              disabled={!engine.available}
+            >
+              {engine.name}
+              {engine.available ? "" : " — unavailable"}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
     </Select>
   );
 }

@@ -3,7 +3,14 @@
 import { useState, type ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
 interface SettingsState {
@@ -58,14 +65,23 @@ export function SettingsForm() {
           htmlFor="orientation"
           control={
             <Select
-              id="orientation"
               value={s.orientation}
-              onChange={(e) =>
-                setS({ ...s, orientation: e.target.value as SettingsState["orientation"] })
+              onValueChange={(orientation) =>
+                setS({
+                  ...s,
+                  orientation: orientation as SettingsState["orientation"],
+                })
               }
             >
-              <option value="white">White</option>
-              <option value="black">Black</option>
+              <SelectTrigger id="orientation" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="white">White</SelectItem>
+                  <SelectItem value="black">Black</SelectItem>
+                </SelectGroup>
+              </SelectContent>
             </Select>
           }
         />
@@ -91,15 +107,24 @@ export function SettingsForm() {
           htmlFor="notation"
           control={
             <Select
-              id="notation"
               value={s.notation}
-              onChange={(e) =>
-                setS({ ...s, notation: e.target.value as SettingsState["notation"] })
+              onValueChange={(notation) =>
+                setS({
+                  ...s,
+                  notation: notation as SettingsState["notation"],
+                })
               }
             >
-              <option value="san">SAN (Nf3)</option>
-              <option value="uci">UCI (g1f3)</option>
-              <option value="figurine">Figurine (♘f3)</option>
+              <SelectTrigger id="notation" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="san">SAN (Nf3)</SelectItem>
+                  <SelectItem value="uci">UCI (g1f3)</SelectItem>
+                  <SelectItem value="figurine">Figurine (♘f3)</SelectItem>
+                </SelectGroup>
+              </SelectContent>
             </Select>
           }
         />

@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Button, type ButtonProps } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+
+type ButtonComponentProps = React.ComponentProps<typeof Button>;
 
 /**
  * Submits a Server Action via a form, gated behind a native confirm dialog.
@@ -20,9 +22,9 @@ export function ConfirmButton({
   confirmMessage: string;
   fields: Record<string, string>;
   children: React.ReactNode;
-  variant?: ButtonProps["variant"];
-  size?: ButtonProps["size"];
-  className?: string;
+  variant?: ButtonComponentProps["variant"];
+  size?: ButtonComponentProps["size"];
+  className?: ButtonComponentProps["className"];
 }) {
   return (
     <form
