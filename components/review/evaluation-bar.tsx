@@ -30,14 +30,14 @@ export function EvaluationBar({
   return (
     <div
       className={cn(
-        "relative flex h-full w-6 shrink-0 flex-col overflow-hidden rounded-lg bg-zinc-800 ring-1 ring-black/40",
+        "relative flex h-full w-7 shrink-0 flex-col overflow-hidden bg-zinc-900 ring-1 ring-black/50",
         className,
       )}
       aria-label={`Evaluation ${label}`}
       title={`Evaluation ${label}`}
     >
       <div
-        className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-zinc-50 to-white transition-[height] duration-500 ease-out"
+        className="absolute inset-x-0 bottom-0 bg-zinc-100 transition-[height] duration-500 ease-out"
         style={{ height: `${bottomPct}%` }}
       />
       <span

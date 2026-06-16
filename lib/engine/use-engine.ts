@@ -37,14 +37,18 @@ export function useEngineAnalysis(params: {
   const fenRef = useRef(fen);
   const settingsRef = useRef(settings);
   const lastKeyRef = useRef("");
-  fenRef.current = fen;
-  settingsRef.current = settings;
+
+  useEffect(() => {
+    fenRef.current = fen;
+    settingsRef.current = settings;
+  }, [fen, settings]);
 
   // (Re)create the engine when the selected engine changes.
   useEffect(() => {
     const descriptor = getEngineDescriptor(settings.engineId);
     readyRef.current = false;
     lastKeyRef.current = "";
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUpdate(null);
 
     if (!descriptor?.available) {

@@ -15,6 +15,36 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+.tempo-piece {
+  display: block;
+  font-family:
+    "Segoe UI Symbol",
+    "Noto Sans Symbols 2",
+    "Apple Symbols",
+    serif;
+  font-size: clamp(42px, 8.4cqw, 92px);
+  line-height: 1;
+  transform: translateY(-1%);
+}
+
+.tempo-piece-white {
+  color: #f2eadc;
+  text-shadow:
+    -1.5px -1.5px 0 #111111,
+    1.5px -1.5px 0 #111111,
+    -1.5px 1.5px 0 #111111,
+    1.5px 1.5px 0 #111111,
+    0 4px 5px rgb(0 0 0 / 0.45);
+}
+
+.tempo-piece-black {
+  color: #1b1b1b;
+  text-shadow:
+    -1px -1px 0 rgb(255 255 255 / 0.16),
+    1px 1px 0 rgb(0 0 0 / 0.6),
+    0 4px 5px rgb(0 0 0 / 0.35);
+}
+
 /* Thin, dark scrollbars to match the analysis-tool aesthetic. */
 * {
   scrollbar-width: thin;

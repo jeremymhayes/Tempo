@@ -25,7 +25,7 @@ export default async function AdminPage({
     >
       {error === "self-delete" ? (
         <div className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-300">
-          You can't delete the account you're signed in as.
+          You can&apos;t delete the account you&apos;re signed in as.
         </div>
       ) : null}
 
