@@ -1,6 +1,7 @@
 import { DEFAULT_POSITION } from "chess.js";
 import type { ParsedGame, PieceColor } from "@/types/chess";
 import type { ReviewSummary, ReviewedMove } from "@/types/review";
+import type { ReviewSnapshot } from "@/lib/review/snapshot";
 import { createStarterReview } from "@/lib/review/starter-review";
 
 export type SavedMoveDto = {
@@ -22,6 +23,13 @@ export type ListGameDto = {
   site: string | null;
   playedAt: string | null;
   createdAt: string;
+  openingName: string | null;
+  openingEco: string | null;
+  bookExitPly: number | null;
+  bookExitMove: string | null;
+  averageAccuracy: number | null;
+  blunders: number | null;
+  shareEnabled: boolean;
   moveCount: number;
 };
 
@@ -35,6 +43,14 @@ export type SavedGameDetailDto = {
   event: string | null;
   site: string | null;
   playedAt: string | null;
+  openingName: string | null;
+  openingEco: string | null;
+  bookExitPly: number | null;
+  bookExitMove: string | null;
+  reviewSnapshot: ReviewSnapshot | null;
+  reviewSnapshotUpdatedAt: string | null;
+  shareToken: string | null;
+  shareEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   moves: SavedMoveDto[];
@@ -48,8 +64,17 @@ export interface SavedGameSummary {
   event?: string;
   site?: string;
   datePlayed?: string;
+  datePlayedIso?: string;
   savedAt: string;
+  savedAtIso: string;
   moveCount: number;
+  openingName?: string;
+  openingEco?: string;
+  bookExitPly?: number;
+  bookExitMove?: string;
+  averageAccuracy?: number;
+  blunders?: number;
+  shareEnabled: boolean;
 }
 
 async function readApiError(response: Response): Promise<string> {
@@ -107,8 +132,17 @@ export function toSavedGameSummary(game: ListGameDto): SavedGameSummary {
     event: game.event || undefined,
     site: game.site || undefined,
     datePlayed: formatDisplayDate(game.playedAt),
+    datePlayedIso: game.playedAt || undefined,
     savedAt: formatSavedAt(game.createdAt),
+    savedAtIso: game.createdAt,
     moveCount: game.moveCount,
+    openingName: game.openingName || undefined,
+    openingEco: game.openingEco || undefined,
+    bookExitPly: game.bookExitPly ?? undefined,
+    bookExitMove: game.bookExitMove || undefined,
+    averageAccuracy: game.averageAccuracy ?? undefined,
+    blunders: game.blunders ?? undefined,
+    shareEnabled: game.shareEnabled,
   };
 }
 
@@ -176,6 +210,18 @@ export async function getSavedGame(id: string): Promise<SavedGameDetailDto> {
   }
 
   return (await response.json()) as SavedGameDetailDto;
+}
+
+export async function enableGameShare(id: string): Promise<{
+  shareToken: string;
+  shareUrl: string;
+}> {
+  const response = await fetch(`/api/games/${id}/share`, { method: "POST" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return (await response.json()) as { shareToken: string; shareUrl: string };
 }
 
 export async function requestReview(game: ParsedGame): Promise<{

@@ -60,6 +60,19 @@ model Game {
   site      String?
   playedAt  DateTime?
 
+  openingName String?
+  openingEco  String?
+  bookExitPly Int?
+  bookExitMove String?
+
+  reviewSnapshot          Json?
+  reviewSnapshotUpdatedAt DateTime?
+  averageAccuracy         Float?
+  blunders                Int?
+
+  shareToken   String?  @unique
+  shareEnabled Boolean  @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -24,11 +24,14 @@ export default async function SavedGamePage({
   const parsedGame = toParsedGame(game);
 
   return (
-    <AppShell
-      title="Review"
-      description={`${parsedGame.white} vs ${parsedGame.black}`}
-    >
-      <ReviewClient initialGame={parsedGame} />
+    <AppShell mainClassName="min-h-0 overflow-hidden p-0">
+      <ReviewClient
+        initialGame={parsedGame}
+        initialReviewSnapshot={game.reviewSnapshot}
+        gameId={game.id}
+        initialShareToken={game.shareToken}
+        initialShareEnabled={game.shareEnabled}
+      />
     </AppShell>
   );
 }

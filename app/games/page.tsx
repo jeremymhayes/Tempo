@@ -1,6 +1,6 @@
 import { Crown } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { GamesTable } from "@/components/games/games-table";
+import { GamesLibrary } from "@/components/games/games-library";
 import { EmptyState } from "@/components/ui/empty-state";
 import { toSavedGameSummary } from "@/lib/api/games";
 import { listGameSummaries } from "@/lib/games/queries";
@@ -22,7 +22,7 @@ export default async function GamesPage() {
           description="Saved PGNs will appear here after you import them."
         />
       ) : (
-        <GamesTable games={games} />
+        <GamesLibrary games={games} />
       )}
     </AppShell>
   );

@@ -1,11 +1,13 @@
 "use client";
 
 import { Separator } from "@/components/ui/separator";
+import type { OpeningBreakdown } from "@/lib/chess/openings";
 import type { WhiteScore } from "@/lib/engine/eval-format";
 import { CLASS_META, CLASS_ORDER } from "@/lib/review/classification-meta";
 import type { ReviewListMove, ReviewStats } from "@/lib/review/review-stats";
 
 import { EvalGraph } from "./eval-graph";
+import { OpeningBreakdownPanel } from "./opening-breakdown";
 
 function formatNumber(value?: number, digits = 1) {
   return typeof value === "number" ? value.toFixed(digits) : "--";
@@ -21,12 +23,14 @@ export function ReviewSummaryPanel({
   stats,
   moves,
   evalByPly,
+  opening,
 }: {
   whiteName: string;
   blackName: string;
   stats: ReviewStats;
   moves: ReviewListMove[];
   evalByPly: Record<number, WhiteScore>;
+  opening: OpeningBreakdown;
 }) {
   const rows = CLASS_ORDER.filter((key) =>
     ["brilliant", "great", "best", "mistake", "blunder"].includes(key),
@@ -68,6 +72,10 @@ export function ReviewSummaryPanel({
             </p>
           </div>
         </div>
+
+        <Separator className="my-4" />
+
+        <OpeningBreakdownPanel opening={opening} />
 
         <Separator className="my-4" />
 

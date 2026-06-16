@@ -8,15 +8,13 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Crown,
-  Home,
-  ListChecks,
-  LogIn,
-  Settings,
-  UserRound,
 } from "lucide-react";
 import type { ParsedGame, PieceColor } from "@/types/chess";
 import type { ReviewedMove } from "@/types/review";
+import {
+  deriveOpeningBreakdown,
+  type OpeningBreakdown,
+} from "@/lib/chess/openings";
 import { createStarterReview } from "@/lib/review/starter-review";
 import { loadCurrentGame } from "@/lib/storage";
 import {
@@ -47,11 +45,13 @@ import {
   buildReviewStats,
   type ReviewListMove,
 } from "@/lib/review/review-stats";
+import type { ReviewSnapshot } from "@/lib/review/snapshot";
 import { AnalysisBoard } from "@/components/chess/analysis-board";
 import { EvaluationBar } from "./evaluation-bar";
 import { EngineSettingsPopover } from "./engine-settings-popover";
 import { ReviewMovePanel } from "./review-move-panel";
 import { ReviewSummaryPanel } from "./review-summary-panel";
+import { ShareReportButton } from "./share-report-button";
 import { cn } from "@/lib/utils";
 
 const RESULT_LABEL: Record<string, string> = {
@@ -88,8 +88,18 @@ function shortName(value: string) {
 
 export function ReviewClient({
   initialGame,
+  initialReviewSnapshot,
+  initialOpening,
+  gameId,
+  initialShareToken = null,
+  initialShareEnabled = false,
 }: {
   initialGame?: ParsedGame | null;
+  initialReviewSnapshot?: ReviewSnapshot | null;
+  initialOpening?: OpeningBreakdown | null;
+  gameId?: string;
+  initialShareToken?: string | null;
+  initialShareEnabled?: boolean;
 }) {
   const hasInitialGame = initialGame !== undefined;
   const [game, setGame] = useState<ParsedGame | null>(initialGame ?? null);
@@ -107,8 +117,32 @@ export function ReviewClient({
     });
   }, []);
 
-  const review = useMemo(() => (game ? createStarterReview(game) : null), [game]);
+  const review = useMemo(() => {
+    if (!game) return null;
+    if (!initialReviewSnapshot) return createStarterReview(game);
+
+    const snapshotByPly = new Map(
+      initialReviewSnapshot.moves.map((move) => [move.ply, move]),
+    );
+    return {
+      moves: game.moves.map((move) => {
+        const snapshot = snapshotByPly.get(move.ply);
+        return snapshot
+          ? {
+              ...move,
+              classification: snapshot.classification,
+              centipawnLoss: snapshot.centipawnLoss,
+            }
+          : move;
+      }),
+      summary: null,
+    };
+  }, [game, initialReviewSnapshot]);
   const reviewedMoves = review?.moves ?? [];
+  const opening = useMemo(
+    () => (game ? (initialOpening ?? deriveOpeningBreakdown(game.moves)) : null),
+    [game, initialOpening],
+  );
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -229,6 +263,7 @@ export function ReviewClient({
   const whiteName = formatPlayer(game.white, "White");
   const blackName = formatPlayer(game.black, "Black");
   const stats = buildReviewStats(classifiedMoves);
+  const openingBreakdown = opening ?? deriveOpeningBreakdown(game.moves);
   const panelMode = ply <= START_PLY ? "summary" : "moves";
 
   return (
@@ -244,13 +279,22 @@ export function ReviewClient({
                 {shortName(whiteName)} vs {shortName(blackName)}
               </p>
             </div>
-            <EngineSettingsPopover
-              settings={settings}
-              status={engine.status}
-              depth={liveUpdate?.depth ?? 0}
-              onChange={updateSettings}
-              onAnalyzeNow={engine.analyzeNow}
-            />
+            <div className="flex items-center gap-2">
+              {gameId ? (
+                <ShareReportButton
+                  gameId={gameId}
+                  initialShareToken={initialShareToken}
+                  initialShareEnabled={initialShareEnabled}
+                />
+              ) : null}
+              <EngineSettingsPopover
+                settings={settings}
+                status={engine.status}
+                depth={liveUpdate?.depth ?? 0}
+                onChange={updateSettings}
+                onAnalyzeNow={engine.analyzeNow}
+              />
+            </div>
           </div>
 
           <div
@@ -317,6 +361,7 @@ export function ReviewClient({
               stats={stats}
               moves={classifiedMoves}
               evalByPly={evalByPly}
+              opening={openingBreakdown}
             />
           ) : (
             <ReviewMovePanel
@@ -334,46 +379,9 @@ export function ReviewClient({
 
 function ReviewShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-black text-zinc-100">
-      <NavigationRail />
-      <main className="min-w-0 flex-1 overflow-hidden">{children}</main>
+    <div className="h-full min-h-0 overflow-hidden bg-black text-zinc-100">
+      {children}
     </div>
-  );
-}
-
-function NavigationRail() {
-  const links = [
-    { href: "/", label: "Import", icon: Home },
-    { href: "/review", label: "Review", icon: ListChecks },
-    { href: "/games", label: "Saved games", icon: Crown },
-    { href: "/settings", label: "Settings", icon: Settings },
-    { href: "/sign-in", label: "Sign in", icon: LogIn },
-  ];
-
-  return (
-    <aside className="hidden w-14 shrink-0 flex-col items-center border-r border-zinc-800 bg-[#0b0b0b] py-3 sm:flex">
-      <Link
-        href="/"
-        aria-label="Tempo"
-        className="mb-7 flex size-9 items-center justify-center bg-[#79b84a] text-lg font-black text-zinc-950"
-      >
-        T
-      </Link>
-      <nav className="flex flex-1 flex-col items-center gap-3">
-        {links.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            aria-label={label}
-            title={label}
-            className="flex size-9 items-center justify-center text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100"
-          >
-            <Icon className="size-5" />
-          </Link>
-        ))}
-      </nav>
-      <UserRound className="size-5 text-zinc-600" />
-    </aside>
   );
 }
 

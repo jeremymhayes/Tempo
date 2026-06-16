@@ -1,11 +1,21 @@
 import type { Prisma } from "@prisma/client";
 import { getPrisma } from "@/lib/db";
+import { deriveOpeningBreakdown } from "@/lib/chess/openings";
 import type {
   ListGameDto,
   SavedGameDetailDto,
   SavedMoveDto,
 } from "@/lib/api/games";
-import type { StoredGameRecord } from "@/lib/chess/pgn-record";
+import {
+  storedGameToParsedGame,
+  type StoredGameRecord,
+} from "@/lib/chess/pgn-record";
+import { createShareToken } from "@/lib/games/share-token";
+import {
+  averageAccuracy,
+  createReviewSnapshot,
+  type ReviewSnapshot,
+} from "@/lib/review/snapshot";
 
 const MOVE_ORDER = [
   { moveNumber: "asc" },
@@ -21,6 +31,13 @@ type GameWithMoveCount = {
   event: string | null;
   site: string | null;
   playedAt: Date | null;
+  openingName: string | null;
+  openingEco: string | null;
+  bookExitPly: number | null;
+  bookExitMove: string | null;
+  averageAccuracy: number | null;
+  blunders: number | null;
+  shareEnabled: boolean;
   createdAt: Date;
   _count: { moves: number };
 };
@@ -35,6 +52,14 @@ type GameWithMoves = {
   event: string | null;
   site: string | null;
   playedAt: Date | null;
+  openingName: string | null;
+  openingEco: string | null;
+  bookExitPly: number | null;
+  bookExitMove: string | null;
+  reviewSnapshot: unknown;
+  reviewSnapshotUpdatedAt: Date | null;
+  shareToken: string | null;
+  shareEnabled: boolean;
   createdAt: Date;
   updatedAt: Date;
   moves: Array<{
@@ -62,6 +87,14 @@ function toMoveDto(move: GameWithMoves["moves"][number]): SavedMoveDto {
   };
 }
 
+function toReviewSnapshot(value: unknown): ReviewSnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  const snapshot = value as Partial<ReviewSnapshot>;
+  return snapshot.version === 1 && Array.isArray(snapshot.moves)
+    ? (value as ReviewSnapshot)
+    : null;
+}
+
 export function toListGameDto(game: GameWithMoveCount): ListGameDto {
   return {
     id: game.id,
@@ -73,6 +106,13 @@ export function toListGameDto(game: GameWithMoveCount): ListGameDto {
     site: game.site,
     playedAt: isoDate(game.playedAt),
     createdAt: game.createdAt.toISOString(),
+    openingName: game.openingName,
+    openingEco: game.openingEco,
+    bookExitPly: game.bookExitPly,
+    bookExitMove: game.bookExitMove,
+    averageAccuracy: game.averageAccuracy,
+    blunders: game.blunders,
+    shareEnabled: game.shareEnabled,
     moveCount: game._count.moves,
   };
 }
@@ -88,6 +128,14 @@ export function toSavedGameDetailDto(game: GameWithMoves): SavedGameDetailDto {
     event: game.event,
     site: game.site,
     playedAt: isoDate(game.playedAt),
+    openingName: game.openingName,
+    openingEco: game.openingEco,
+    bookExitPly: game.bookExitPly,
+    bookExitMove: game.bookExitMove,
+    reviewSnapshot: toReviewSnapshot(game.reviewSnapshot),
+    reviewSnapshotUpdatedAt: isoDate(game.reviewSnapshotUpdatedAt),
+    shareToken: game.shareToken,
+    shareEnabled: game.shareEnabled,
     createdAt: game.createdAt.toISOString(),
     updatedAt: game.updatedAt.toISOString(),
     moves: game.moves.map(toMoveDto),
@@ -108,6 +156,13 @@ export async function listGameSummaries(userId: string): Promise<ListGameDto[]> 
       event: true,
       site: true,
       playedAt: true,
+      openingName: true,
+      openingEco: true,
+      bookExitPly: true,
+      bookExitMove: true,
+      averageAccuracy: true,
+      blunders: true,
+      shareEnabled: true,
       createdAt: true,
       _count: {
         select: { moves: true },
@@ -140,6 +195,11 @@ export async function createGame(
   userId: string,
 ): Promise<SavedGameDetailDto> {
   const prisma = getPrisma();
+  const reviewGame = storedGameToParsedGame(parsedGame);
+  const opening = deriveOpeningBreakdown(reviewGame.moves);
+  const reviewSnapshot = createReviewSnapshot(reviewGame);
+  const reviewAverageAccuracy = averageAccuracy(reviewSnapshot.stats);
+
   const game = await prisma.game.create({
     data: {
       userId,
@@ -150,6 +210,15 @@ export async function createGame(
       event: parsedGame.event,
       site: parsedGame.site,
       playedAt: parsedGame.playedAt,
+      openingName: opening.name,
+      openingEco: opening.eco,
+      bookExitPly: opening.bookExitPly,
+      bookExitMove: opening.bookExitMove,
+      reviewSnapshot: reviewSnapshot as Prisma.InputJsonValue,
+      reviewSnapshotUpdatedAt: new Date(),
+      averageAccuracy: reviewAverageAccuracy,
+      blunders: reviewSnapshot.blunders,
+      shareToken: createShareToken(),
       moves: {
         create: parsedGame.moves.map((move) => ({
           moveNumber: move.moveNumber,
@@ -168,4 +237,47 @@ export async function createGame(
   });
 
   return toSavedGameDetailDto(game);
+}
+
+export async function enableGameSharing(
+  id: string,
+  userId: string,
+): Promise<SavedGameDetailDto | null> {
+  const prisma = getPrisma();
+  const existing = await prisma.game.findFirst({
+    where: { id, userId },
+    select: { shareToken: true },
+  });
+  if (!existing) return null;
+
+  const game = await prisma.game.update({
+    where: { id },
+    data: {
+      shareEnabled: true,
+      shareToken: existing.shareToken ?? createShareToken(),
+    },
+    include: {
+      moves: {
+        orderBy: MOVE_ORDER,
+      },
+    },
+  });
+
+  return toSavedGameDetailDto(game);
+}
+
+export async function getSharedGameDetail(
+  token: string,
+): Promise<SavedGameDetailDto | null> {
+  const prisma = getPrisma();
+  const game = await prisma.game.findFirst({
+    where: { shareToken: token, shareEnabled: true },
+    include: {
+      moves: {
+        orderBy: MOVE_ORDER,
+      },
+    },
+  });
+
+  return game ? toSavedGameDetailDto(game) : null;
 }

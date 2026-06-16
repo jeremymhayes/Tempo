@@ -1,5 +1,5 @@
-import { Chess } from "chess.js";
-import type { PieceColor } from "@/types/chess";
+import { Chess, DEFAULT_POSITION } from "chess.js";
+import type { ParsedGame, PieceColor } from "@/types/chess";
 
 export type StoredMoveRecord = {
   moveNumber: number;
@@ -111,5 +111,48 @@ export function parsePgnForStorage(pgn: string): ParsePgnForStorageResult {
       playedAt: parsePgnDate(headers.Date),
       moves,
     },
+  };
+}
+
+export function storedGameToParsedGame(game: StoredGameRecord): ParsedGame {
+  const result =
+    game.result === "1-0" ||
+    game.result === "0-1" ||
+    game.result === "1/2-1/2"
+      ? game.result
+      : "*";
+
+  const datePlayed = game.playedAt
+    ? `${game.playedAt.getUTCFullYear()}.${String(
+        game.playedAt.getUTCMonth() + 1,
+      ).padStart(2, "0")}.${String(game.playedAt.getUTCDate()).padStart(2, "0")}`
+    : undefined;
+
+  return {
+    pgn: game.pgn,
+    headers: {
+      Event: game.event || undefined,
+      Site: game.site || undefined,
+      Date: datePlayed,
+      White: game.whiteName || undefined,
+      Black: game.blackName || undefined,
+      Result: result,
+    },
+    initialFen: game.moves[0]?.fenBefore ?? DEFAULT_POSITION,
+    moves: game.moves.map((move, index) => ({
+      ply: index,
+      moveNumber: move.moveNumber,
+      color: move.color,
+      san: move.san,
+      lan: "",
+      from: "",
+      to: "",
+      fenBefore: move.fenBefore,
+      fenAfter: move.fenAfter,
+    })),
+    white: game.whiteName || "White",
+    black: game.blackName || "Black",
+    result,
+    datePlayed,
   };
 }
