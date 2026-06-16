@@ -10,6 +10,10 @@ import {
   toMovePairs,
   type ReviewListMove,
 } from "@/lib/review/review-stats";
+import {
+  REVIEW_MOVE_ROW_HEIGHT_PX,
+  REVIEW_MOVE_VISIBLE_ROWS,
+} from "@/lib/review/deep-analysis";
 import { cn } from "@/lib/utils";
 
 import { EvalGraph } from "./eval-graph";
@@ -98,25 +102,33 @@ export function ReviewMovePanel({
 
       <Separator />
 
-      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        <div className="grid grid-cols-[42px_minmax(0,1fr)_minmax(0,1fr)] border border-zinc-800 bg-zinc-950">
-          {pairs.map((pair) => (
-            <div key={pair.moveNumber} className="contents">
-              <span className="border-b border-zinc-800 px-2 py-1.5 text-right font-mono text-xs text-zinc-600">
-                {pair.moveNumber}.
-              </span>
-              <MoveCell
-                move={pair.white}
-                active={pair.white?.ply === currentPly}
-                onSelect={onSelect}
-              />
-              <MoveCell
-                move={pair.black}
-                active={pair.black?.ply === currentPly}
-                onSelect={onSelect}
-              />
-            </div>
-          ))}
+      <div className="px-5 py-4">
+        <div
+          ref={listRef}
+          className="overflow-y-auto border border-zinc-800 bg-zinc-950"
+          style={{
+            maxHeight: `${REVIEW_MOVE_VISIBLE_ROWS * REVIEW_MOVE_ROW_HEIGHT_PX}px`,
+          }}
+        >
+          <div className="grid grid-cols-[42px_minmax(0,1fr)_minmax(0,1fr)]">
+            {pairs.map((pair) => (
+              <div key={pair.moveNumber} className="contents">
+                <span className="border-b border-zinc-800 px-2 py-1.5 text-right font-mono text-xs text-zinc-600">
+                  {pair.moveNumber}.
+                </span>
+                <MoveCell
+                  move={pair.white}
+                  active={pair.white?.ply === currentPly}
+                  onSelect={onSelect}
+                />
+                <MoveCell
+                  move={pair.black}
+                  active={pair.black?.ply === currentPly}
+                  onSelect={onSelect}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

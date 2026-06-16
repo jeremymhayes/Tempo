@@ -45,10 +45,21 @@ export function useEngineAnalysis(params: {
 
   // (Re)create the engine when the selected engine changes.
   useEffect(() => {
+    if (!enabled) {
+      readyRef.current = false;
+      lastKeyRef.current = "";
+      engineRef.current?.dispose();
+      engineRef.current = null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setStatus("idle");
+      setError(null);
+      setUpdate(null);
+      return;
+    }
+
     const descriptor = getEngineDescriptor(settings.engineId);
     readyRef.current = false;
     lastKeyRef.current = "";
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUpdate(null);
 
     if (!descriptor?.available) {
@@ -91,7 +102,7 @@ export function useEngineAnalysis(params: {
       engine.dispose();
       engineRef.current = null;
     };
-  }, [settings.engineId]);
+  }, [enabled, settings.engineId]);
 
   const analyzeNow = useCallback(() => {
     const engine = engineRef.current;

@@ -39,13 +39,14 @@ import {
   type WhiteScore,
 } from "@/lib/engine/eval-format";
 import { uciToSquares } from "@/lib/engine/san";
-import { centipawnLoss, classifyLoss } from "@/lib/engine/classify";
 import { CLASS_META } from "@/lib/review/classification-meta";
 import {
   buildReviewStats,
   type ReviewListMove,
 } from "@/lib/review/review-stats";
 import type { ReviewSnapshot } from "@/lib/review/snapshot";
+import { buildEngineReviewedMoves } from "@/lib/review/deep-analysis";
+import { useDeepReviewAnalysis } from "@/lib/review/use-deep-review-analysis";
 import { AnalysisBoard } from "@/components/chess/analysis-board";
 import { EvaluationBar } from "./evaluation-bar";
 import { EngineSettingsPopover } from "./engine-settings-popover";
@@ -106,7 +107,9 @@ export function ReviewClient({
   const [loaded, setLoaded] = useState(hasInitialGame);
   const [ply, setPly] = useState(START_PLY);
   const [settings, setSettings] = useState<AnalysisSettings>(DEFAULT_SETTINGS);
-  const [evalByPly, setEvalByPly] = useState<Record<number, WhiteScore>>({});
+  const [liveEvalByPly, setLiveEvalByPly] = useState<
+    Record<number, WhiteScore>
+  >({});
   const [boardAreaRef, boardArea] = useBoxSize<HTMLDivElement>();
 
   const updateSettings = useCallback((patch: Partial<AnalysisSettings>) => {
@@ -139,6 +142,11 @@ export function ReviewClient({
     };
   }, [game, initialReviewSnapshot]);
   const reviewedMoves = review?.moves ?? [];
+  const deepReview = useDeepReviewAnalysis(game);
+  const displayEvalByPly = useMemo(
+    () => ({ ...deepReview.evalByPly, ...liveEvalByPly }),
+    [deepReview.evalByPly, liveEvalByPly],
+  );
   const opening = useMemo(
     () => (game ? (initialOpening ?? deriveOpeningBreakdown(game.moves)) : null),
     [game, initialOpening],
@@ -158,11 +166,15 @@ export function ReviewClient({
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEvalByPly({});
+    setLiveEvalByPly({});
   }, [game]);
 
   const fen = game ? fenAtPly(game, ply) : "";
-  const engine = useEngineAnalysis({ fen, enabled: Boolean(game), settings });
+  const engine = useEngineAnalysis({
+    fen,
+    enabled: Boolean(game) && deepReview.status === "ready",
+    settings,
+  });
   const liveUpdate =
     engine.update && engine.update.fen === fen ? engine.update : null;
 
@@ -170,7 +182,7 @@ export function ReviewClient({
     if (!liveUpdate?.done || !liveUpdate.lines[0]) return;
     const ws = toWhitePov(liveUpdate.lines[0].score, fenSideToMove(fen));
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEvalByPly((prev) =>
+    setLiveEvalByPly((prev) =>
       prev[ply] && prev[ply].type === ws.type && prev[ply].value === ws.value
         ? prev
         : { ...prev, [ply]: ws },
@@ -231,12 +243,57 @@ export function ReviewClient({
     );
   }
 
+  if (deepReview.status !== "ready") {
+    return (
+      <ReviewShell>
+        <div className="flex h-full items-center justify-center bg-[#111111] px-6 text-zinc-100">
+          <div className="w-full max-w-md border border-zinc-800 bg-zinc-950 p-6">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-500">
+              Stockfish Review
+            </p>
+            <h1 className="mt-2 text-lg font-bold text-zinc-100">
+              {deepReview.status === "error"
+                ? "Analysis failed"
+                : "Analyzing the full game"}
+            </h1>
+            {deepReview.status === "error" ? (
+              <p className="mt-3 text-sm leading-relaxed text-red-300">
+                {deepReview.error ?? "Stockfish could not finish this review."}
+              </p>
+            ) : (
+              <>
+                <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+                  Tempo is evaluating every position at depth 16 and Stockfish
+                  skill 20 before showing classifications.
+                </p>
+                <div className="mt-5 h-2 overflow-hidden rounded-full bg-zinc-800">
+                  <div
+                    className="h-full bg-zinc-100 transition-[width]"
+                    style={{
+                      width:
+                        deepReview.total > 0
+                          ? `${Math.round((deepReview.current / deepReview.total) * 100)}%`
+                          : "0%",
+                    }}
+                  />
+                </div>
+                <p className="mt-2 text-xs font-semibold text-zinc-500">
+                  {deepReview.current} / {deepReview.total} positions
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      </ReviewShell>
+    );
+  }
+
   const orientation: PieceColor = "w";
   const sideToMove = fenSideToMove(fen);
   const lastMove = lastMoveSquares(game, ply);
   const liveWhiteScore: WhiteScore | null = liveUpdate?.lines[0]
     ? toWhitePov(liveUpdate.lines[0].score, sideToMove)
-    : (evalByPly[ply] ?? null);
+    : (displayEvalByPly[ply] ?? null);
 
   const bestArrow = (() => {
     if (!settings.showBestMove) return null;
@@ -246,16 +303,10 @@ export function ReviewClient({
     return sq ? { from: sq.from, to: sq.to } : null;
   })();
 
-  const classifiedMoves: ReviewListMove[] = game.moves.map((move, i) => {
-    const base = reviewedMoves[i] ?? move;
-    const before = evalByPly[i - 1];
-    const after = evalByPly[i];
-    if (before && after) {
-      const loss = centipawnLoss(before, after, move.color);
-      return { ...base, classification: classifyLoss(loss), centipawnLoss: loss };
-    }
-    return base;
-  });
+  const classifiedMoves: ReviewListMove[] = buildEngineReviewedMoves(
+    deepReview.moves.length > 0 ? deepReview.moves : reviewedMoves,
+    deepReview.evalByPly,
+  );
 
   const currentMove = ply >= 0 ? (classifiedMoves[ply] as ReviewedMove) : null;
   const currentClass = currentMove?.classification ?? null;
@@ -360,14 +411,14 @@ export function ReviewClient({
               blackName={blackName}
               stats={stats}
               moves={classifiedMoves}
-              evalByPly={evalByPly}
+              evalByPly={deepReview.evalByPly}
               opening={openingBreakdown}
             />
           ) : (
             <ReviewMovePanel
               moves={classifiedMoves}
               currentPly={ply}
-              evalByPly={evalByPly}
+              evalByPly={deepReview.evalByPly}
               onSelect={setPly}
             />
           )}

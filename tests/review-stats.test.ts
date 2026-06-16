@@ -7,6 +7,10 @@ import {
   shouldShowMoveIcon,
   toMovePairs,
 } from "@/lib/review/review-stats";
+import {
+  buildEngineReviewedMoves,
+  terminalWhiteScore,
+} from "@/lib/review/deep-analysis";
 
 type GameMoveWithClass = GameMove & {
   classification?:
@@ -96,5 +100,32 @@ describe("review stats helpers", () => {
     assert.equal(pairs[1].moveNumber, 2);
     assert.equal(pairs[1].white?.san, "Nf3");
     assert.equal(pairs[1].black, undefined);
+  });
+
+  it("classifies moves from engine eval swings instead of starter heuristics", () => {
+    const reviewed = buildEngineReviewedMoves(
+      [
+        move(0, "Qh5", "w"),
+        move(1, "Nc6", "b"),
+      ],
+      {
+        [-1]: { type: "cp", value: 300 },
+        0: { type: "cp", value: -250 },
+        1: { type: "cp", value: 200 },
+      },
+    );
+
+    assert.equal(reviewed[0].classification, "blunder");
+    assert.equal(reviewed[0].centipawnLoss, 550);
+    assert.equal(reviewed[1].classification, "blunder");
+    assert.equal(reviewed[1].centipawnLoss, 450);
+  });
+
+  it("scores terminal checkmate positions without Stockfish output", () => {
+    const score = terminalWhiteScore(
+      "1n1Rkb1r/p4ppp/4q3/4p1B1/4P3/8/PPP2PPP/2K5 b k - 1 17",
+    );
+
+    assert.deepEqual(score, { type: "mate", value: 1 });
   });
 });
