@@ -60,8 +60,13 @@ describe("review stats helpers", () => {
     assert.equal(stats.counts.black.blunder, 1);
     assert.equal(stats.accuracy.white, 93.3);
     assert.equal(stats.accuracy.black, 50.3);
-    assert.equal(stats.rating.white, estimateGameRating(93.3));
-    assert.equal(stats.rating.black, estimateGameRating(50.3));
+    assert.equal(stats.rating.white, 1720);
+    assert.equal(stats.rating.black, 1204);
+  });
+
+  it("estimates game ratings from accuracy", () => {
+    assert.equal(estimateGameRating(93.3), 1720);
+    assert.equal(estimateGameRating(undefined), undefined);
   });
 
   it("shows move-list icons only for brilliant, great, mistake, and blunder", () => {
