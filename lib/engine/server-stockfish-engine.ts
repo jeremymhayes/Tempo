@@ -13,6 +13,7 @@ import { parseBestMove, parseInfoLine } from "@/lib/engine/uci";
 const require = createRequire(import.meta.url);
 const HANDSHAKE_TIMEOUT_MS = 15_000;
 const DEFAULT_SEARCH_TIMEOUT_MS = 30_000;
+const STOP_RESPONSE_TIMEOUT_MS = 5_000;
 const STOCKFISH_FLAVOR_FILES: Record<string, string> = {
   full: "stockfish-18.js",
   lite: "stockfish-18-lite.js",
@@ -67,6 +68,7 @@ export class ServerStockfishEngine implements AnalysisEngine {
   private analyzing = false;
   private discardNext = false;
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
+  private stopResponseTimer: ReturnType<typeof setTimeout> | null = null;
   private stdoutBuffer = "";
   private stderrBuffer = "";
 
@@ -134,7 +136,7 @@ export class ServerStockfishEngine implements AnalysisEngine {
   }
 
   dispose(): void {
-    this.clearSearchTimer();
+    this.clearSearchTimers();
     if (!this.engine) return;
     try {
       this.post("quit");
@@ -185,7 +187,11 @@ export class ServerStockfishEngine implements AnalysisEngine {
 
   private post(command: string): void {
     if (!this.engine || this.engine.stdin.destroyed) return;
-    this.engine.stdin.write(`${command}\n`);
+    try {
+      this.engine.stdin.write(`${command}\n`);
+    } catch {
+      // ignore writes racing with process shutdown
+    }
   }
 
   private waitFor(
@@ -221,6 +227,7 @@ export class ServerStockfishEngine implements AnalysisEngine {
   private handleProcessError = (error: Error): void => {
     this.rejectWaiters(error);
     if (this.analyzing) {
+      this.clearSearchTimers();
       this.analyzing = false;
       this.emit(true, null);
     }
@@ -239,6 +246,7 @@ export class ServerStockfishEngine implements AnalysisEngine {
     );
     this.rejectWaiters(error);
     if (this.analyzing) {
+      this.clearSearchTimers();
       this.analyzing = false;
       this.emit(true, null);
     }
@@ -266,7 +274,7 @@ export class ServerStockfishEngine implements AnalysisEngine {
 
     const best = parseBestMove(line);
     if (best !== undefined) {
-      this.clearSearchTimer();
+      this.clearSearchTimers();
       this.analyzing = false;
       if (this.discardNext) {
         this.discardNext = false;
@@ -292,23 +300,39 @@ export class ServerStockfishEngine implements AnalysisEngine {
   }
 
   private startSearchTimer(): void {
-    this.clearSearchTimer();
+    this.clearSearchTimers();
     this.searchTimer = setTimeout(() => {
       if (!this.analyzing) return;
+      this.searchTimer = null;
       try {
         this.post("stop");
       } catch {
         // ignore timeout cleanup
       }
-      this.analyzing = false;
-      this.emit(true, null);
+      this.startStopResponseTimer();
     }, this.searchTimeoutMs);
   }
 
-  private clearSearchTimer(): void {
-    if (!this.searchTimer) return;
-    clearTimeout(this.searchTimer);
-    this.searchTimer = null;
+  private startStopResponseTimer(): void {
+    if (this.stopResponseTimer) return;
+    this.stopResponseTimer = setTimeout(() => {
+      this.stopResponseTimer = null;
+      if (!this.analyzing) return;
+      this.analyzing = false;
+      this.emit(true, null);
+      if (this.pending) this.runPending();
+    }, STOP_RESPONSE_TIMEOUT_MS);
+  }
+
+  private clearSearchTimers(): void {
+    if (this.searchTimer) {
+      clearTimeout(this.searchTimer);
+      this.searchTimer = null;
+    }
+    if (this.stopResponseTimer) {
+      clearTimeout(this.stopResponseTimer);
+      this.stopResponseTimer = null;
+    }
   }
 
   private emit(done: boolean, bestMove?: string | null): void {

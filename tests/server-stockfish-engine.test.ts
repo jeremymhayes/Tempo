@@ -45,4 +45,34 @@ describe("server Stockfish engine", () => {
       engine.dispose();
     }
   });
+
+  it("waits for Stockfish to answer after a search timeout sends stop", async () => {
+    const engine = new ServerStockfishEngine("lite-single", 1);
+    await engine.init();
+
+    try {
+      const update = await new Promise<AnalysisUpdate>((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(new Error("Timed out waiting for stopped Stockfish.")),
+          10_000,
+        );
+
+        engine.analyze(
+          DEFAULT_POSITION,
+          { depth: 20, multiPV: 1, skill: 20 },
+          (value) => {
+            if (!value.done) return;
+            clearTimeout(timer);
+            resolve(value);
+          },
+        );
+      });
+
+      assert.equal(update.lines.length, 1);
+      assert.equal(typeof update.lines[0]?.score, "object");
+      assert.equal(update.bestMove?.length, 4);
+    } finally {
+      engine.dispose();
+    }
+  });
 });
