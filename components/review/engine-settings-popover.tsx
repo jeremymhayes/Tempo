@@ -73,7 +73,7 @@ export function EngineSettingsPopover({
           <Settings data-icon="inline-start" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
+      <PopoverContent align="end" className="w-96 max-w-[calc(100vw-2rem)] p-0">
         <div className="flex items-center justify-between gap-3 p-4">
           <div>
             <p className="text-sm font-semibold text-foreground">
@@ -116,6 +116,7 @@ export function EngineSettingsPopover({
           {settings.mode === "depth" ? (
             <SettingRow label="Depth" value={`${settings.depth} plies`}>
               <Slider
+                aria-label="Depth"
                 min={b.depth.min}
                 max={b.depth.max}
                 value={[settings.depth]}
@@ -130,6 +131,7 @@ export function EngineSettingsPopover({
               value={`${(settings.movetime / 1000).toFixed(1)}s`}
             >
               <Slider
+                aria-label="Time per move"
                 min={b.movetime.min}
                 max={b.movetime.max}
                 step={b.movetime.step}
@@ -170,6 +172,7 @@ export function EngineSettingsPopover({
             value={`${settings.skill} / ${b.skill.max}`}
           >
             <Slider
+              aria-label="Skill level"
               min={b.skill.min}
               max={b.skill.max}
               value={[settings.skill]}
@@ -187,6 +190,7 @@ export function EngineSettingsPopover({
           >
             <div className="flex justify-end">
               <Switch
+                aria-label="Auto-analyze"
                 checked={settings.autoAnalyze}
                 onCheckedChange={(autoAnalyze) => onChange({ autoAnalyze })}
               />
@@ -198,6 +202,7 @@ export function EngineSettingsPopover({
           <SettingRow label="Evaluation bar">
             <div className="flex justify-end">
               <Switch
+                aria-label="Evaluation bar"
                 checked={settings.showEvalBar}
                 onCheckedChange={(showEvalBar) => onChange({ showEvalBar })}
               />
@@ -209,6 +214,7 @@ export function EngineSettingsPopover({
           <SettingRow label="Best move arrow">
             <div className="flex justify-end">
               <Switch
+                aria-label="Best move arrow"
                 checked={settings.showBestMove}
                 onCheckedChange={(showBestMove) => onChange({ showBestMove })}
               />
