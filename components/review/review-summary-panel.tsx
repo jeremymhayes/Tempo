@@ -20,6 +20,8 @@ function formatRating(value?: number) {
 export function ReviewSummaryPanel({
   whiteName,
   blackName,
+  whitePlayerRating,
+  blackPlayerRating,
   stats,
   moves,
   evalByPly,
@@ -27,6 +29,8 @@ export function ReviewSummaryPanel({
 }: {
   whiteName: string;
   blackName: string;
+  whitePlayerRating?: number;
+  blackPlayerRating?: number;
   stats: ReviewStats;
   moves: ReviewListMove[];
   evalByPly: Record<number, WhiteScore>;
@@ -51,22 +55,32 @@ export function ReviewSummaryPanel({
             <p className="truncate text-xs font-medium text-zinc-500">
               {whiteName}
             </p>
+            {typeof whitePlayerRating === "number" ? (
+              <p className="mt-0.5 text-xs text-zinc-600">
+                Player Elo {formatRating(whitePlayerRating)}
+              </p>
+            ) : null}
             <p className="mt-1 text-3xl font-semibold tabular-nums text-zinc-100">
               {formatNumber(stats.accuracy.white)}
             </p>
             <p className="text-xs text-zinc-500">
-              Elo {formatRating(stats.rating.white)}
+              Game rating {formatRating(stats.rating.white)}
             </p>
           </div>
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-zinc-500">
               {blackName}
             </p>
+            {typeof blackPlayerRating === "number" ? (
+              <p className="mt-0.5 text-xs text-zinc-600">
+                Player Elo {formatRating(blackPlayerRating)}
+              </p>
+            ) : null}
             <p className="mt-1 text-3xl font-semibold tabular-nums text-zinc-100">
               {formatNumber(stats.accuracy.black)}
             </p>
             <p className="text-xs text-zinc-500">
-              Elo {formatRating(stats.rating.black)}
+              Game rating {formatRating(stats.rating.black)}
             </p>
           </div>
         </div>

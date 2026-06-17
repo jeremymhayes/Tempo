@@ -71,9 +71,9 @@ describe("review stats helpers", () => {
     assert.equal(stats.counts.black.best, 1);
     assert.equal(stats.counts.black.mistake, 1);
     assert.equal(stats.counts.black.blunder, 1);
-    assert.equal(stats.accuracy.white, 98);
+    assert.equal(stats.accuracy.white, 97);
     assert.equal(stats.accuracy.black, 57.7);
-    assert.equal(stats.rating.white, 1720);
+    assert.equal(stats.rating.white, 1705);
     assert.equal(stats.rating.black, 956);
   });
 
@@ -503,6 +503,21 @@ describe("review stats helpers", () => {
 
     assert.equal(stats.accuracy.white, 96.3);
     assert.equal(stats.accuracy.black, 30.8);
+  });
+
+  it("counts book moves without averaging them into accuracy", () => {
+    const stats = buildReviewStats([
+      { ...move(0, "e4", "w", "book"), centipawnLoss: 0 },
+      {
+        ...move(2, "Qh5", "w", "blunder"),
+        centipawnLoss: 450,
+      },
+    ]);
+
+    assert.equal(stats.counts.white.book, 1);
+    assert.equal(stats.counts.white.blunder, 1);
+    assert.equal(stats.accuracy.white, 30.8);
+    assert.equal(stats.rating.white, 607);
   });
 
   it("uses practical win-chance loss for accuracy when evals are available", () => {

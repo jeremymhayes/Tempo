@@ -20,6 +20,11 @@ function formatNumber(value?: number, digits = 1) {
   return typeof value === "number" ? value.toFixed(digits) : "--";
 }
 
+function headerRating(value: string | undefined): number | undefined {
+  const rating = Number(value);
+  return Number.isInteger(rating) && rating > 0 ? rating : undefined;
+}
+
 function snapshotMoves(game: ParsedGame, snapshot: ReviewSnapshot): ReviewListMove[] {
   const snapshotByPly = new Map(snapshot.moves.map((move) => [move.ply, move]));
   return game.moves.map((move) => {
@@ -55,6 +60,8 @@ export function SharedReviewReport({
   const pairs = toMovePairs(moves);
   const evalByPly = evalByPlyFromSnapshot(snapshot);
   const boardFen = selectReviewFocusFen(moves, game.initialFen);
+  const whitePlayerRating = headerRating(game.headers.WhiteElo);
+  const blackPlayerRating = headerRating(game.headers.BlackElo);
 
   return (
     <div className="min-h-screen bg-black text-zinc-100">
@@ -92,20 +99,30 @@ export function SharedReviewReport({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="border border-zinc-800 bg-zinc-950 p-4">
               <p className="truncate text-sm text-zinc-500">{game.white}</p>
+              {typeof whitePlayerRating === "number" ? (
+                <p className="mt-1 text-xs text-zinc-600">
+                  Player Elo {formatNumber(whitePlayerRating, 0)}
+                </p>
+              ) : null}
               <p className="mt-2 text-4xl font-semibold tabular-nums">
                 {formatNumber(snapshot.stats.accuracy.white)}
               </p>
               <p className="text-sm text-zinc-500">
-                Elo {formatNumber(snapshot.stats.rating.white, 0)}
+                Game rating {formatNumber(snapshot.stats.rating.white, 0)}
               </p>
             </div>
             <div className="border border-zinc-800 bg-zinc-950 p-4">
               <p className="truncate text-sm text-zinc-500">{game.black}</p>
+              {typeof blackPlayerRating === "number" ? (
+                <p className="mt-1 text-xs text-zinc-600">
+                  Player Elo {formatNumber(blackPlayerRating, 0)}
+                </p>
+              ) : null}
               <p className="mt-2 text-4xl font-semibold tabular-nums">
                 {formatNumber(snapshot.stats.accuracy.black)}
               </p>
               <p className="text-sm text-zinc-500">
-                Elo {formatNumber(snapshot.stats.rating.black, 0)}
+                Game rating {formatNumber(snapshot.stats.rating.black, 0)}
               </p>
             </div>
           </div>

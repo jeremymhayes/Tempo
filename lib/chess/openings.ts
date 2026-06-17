@@ -1,4 +1,4 @@
-import type { GameMove } from "@/types/chess";
+import type { GameHeaders, GameMove, ParsedGame } from "@/types/chess";
 
 export type OpeningBreakdown = {
   eco: string | null;
@@ -14,6 +14,8 @@ type OpeningLine = {
   name: string;
   moves: string[];
 };
+
+type OpeningSource = GameMove[] | Pick<ParsedGame, "headers" | "moves">;
 
 const OPENING_LINES: OpeningLine[] = [
   { eco: "C41", name: "Philidor Defense", moves: ["e4", "e5", "Nf3", "d6"] },
@@ -34,6 +36,18 @@ function normalizeSan(san: string): string {
   return san.replace(/[+#?!]+/g, "");
 }
 
+function cleanHeader(value: string | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeOpeningName(value: string): string {
+  return value
+    .replace(/[._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function formatMove(move: GameMove): string {
   return move.color === "w"
     ? `${move.moveNumber}. ${move.san}`
@@ -45,7 +59,124 @@ function matchesLine(moves: GameMove[], line: OpeningLine): boolean {
   return line.moves.every((san, index) => normalizeSan(moves[index].san) === san);
 }
 
-export function deriveOpeningBreakdown(moves: GameMove[]): OpeningBreakdown {
+function sourceMoves(source: OpeningSource): GameMove[] {
+  return Array.isArray(source) ? source : source.moves;
+}
+
+function sourceHeaders(source: OpeningSource): GameHeaders {
+  return Array.isArray(source) ? {} : source.headers;
+}
+
+function breakdownForBookEnd(
+  moves: GameMove[],
+  name: string,
+  eco: string | null,
+  bookLastPly: number | null,
+): OpeningBreakdown {
+  const exitMove =
+    typeof bookLastPly === "number" ? (moves[bookLastPly + 1] ?? null) : null;
+
+  return {
+    eco,
+    name,
+    matchedPlyCount: typeof bookLastPly === "number" ? bookLastPly + 1 : 0,
+    bookLastPly,
+    bookExitPly: exitMove ? exitMove.ply : null,
+    bookExitMove: exitMove ? formatMove(exitMove) : null,
+  };
+}
+
+function chessComOpeningSlug(headers: GameHeaders): string | null {
+  const ecoUrl = cleanHeader(headers.ECOUrl);
+  if (!ecoUrl) return null;
+
+  try {
+    const url = new URL(ecoUrl);
+    const marker = "/openings/";
+    const markerIndex = url.pathname.indexOf(marker);
+    if (markerIndex < 0) return null;
+    return decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
+  } catch {
+    return null;
+  }
+}
+
+function sanTokensFromOpeningSlug(slug: string): string[] {
+  const moveStart = slug.search(/\d+\./);
+  if (moveStart < 0) return [];
+
+  return slug
+    .slice(moveStart)
+    .split("-")
+    .map((token) =>
+      normalizeSan(token.replace(/^\d+\.(?:\.\.)?/, "")).trim(),
+    )
+    .filter(Boolean);
+}
+
+function openingNameFromSlug(slug: string): string | null {
+  const moveStart = slug.search(/\d+\./);
+  const namePart = (moveStart >= 0 ? slug.slice(0, moveStart) : slug).replace(
+    /[.-]+$/,
+    "",
+  );
+  const name = normalizeOpeningName(namePart);
+  return name || null;
+}
+
+function findSanSequenceEndPly(
+  moves: GameMove[],
+  sequence: string[],
+): number | null {
+  if (!sequence.length || sequence.length > moves.length) return null;
+
+  for (let start = 0; start <= moves.length - sequence.length; start += 1) {
+    const matches = sequence.every(
+      (san, offset) => normalizeSan(moves[start + offset].san) === san,
+    );
+    if (matches) return start + sequence.length - 1;
+  }
+
+  return null;
+}
+
+function deriveHeaderOpening(
+  moves: GameMove[],
+  headers: GameHeaders,
+): OpeningBreakdown | null {
+  const eco = cleanHeader(headers.ECO);
+  const headerName = cleanHeader(headers.Opening);
+  const slug = chessComOpeningSlug(headers);
+  const slugName = slug ? openingNameFromSlug(slug) : null;
+  const sequence = slug ? sanTokensFromOpeningSlug(slug) : [];
+  const sequenceEndPly = findSanSequenceEndPly(moves, sequence);
+  const name = headerName ?? slugName;
+
+  if (name && sequenceEndPly !== null) {
+    return breakdownForBookEnd(moves, name, eco, sequenceEndPly);
+  }
+
+  if (name || eco) {
+    const firstMove = moves[0] ?? null;
+    return {
+      eco,
+      name: name ?? "Unclassified Opening",
+      matchedPlyCount: 0,
+      bookLastPly: null,
+      bookExitPly: firstMove ? firstMove.ply : null,
+      bookExitMove: firstMove ? formatMove(firstMove) : null,
+    };
+  }
+
+  return null;
+}
+
+export function deriveOpeningBreakdown(source: OpeningSource): OpeningBreakdown {
+  const moves = sourceMoves(source);
+  const headers = sourceHeaders(source);
+  const headerBreakdown = deriveHeaderOpening(moves, headers);
+  if (headerBreakdown) return headerBreakdown;
+
   const line = OPENING_LINES.find((candidate) => matchesLine(moves, candidate));
 
   if (!line) {

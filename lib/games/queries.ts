@@ -203,7 +203,7 @@ export async function createGame(
 ): Promise<SavedGameDetailDto> {
   const prisma = getPrisma();
   const reviewGame = storedGameToParsedGame(parsedGame);
-  const opening = deriveOpeningBreakdown(reviewGame.moves);
+  const opening = deriveOpeningBreakdown(reviewGame);
   const reviewSnapshot = createReviewSnapshot(reviewGame);
   const reviewFields = reviewSnapshotPersistenceFields(reviewSnapshot);
 

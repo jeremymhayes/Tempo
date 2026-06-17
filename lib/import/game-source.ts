@@ -18,7 +18,7 @@ type ResolveDeps = {
 
 type ChessComGameUrl = {
   gameId: string;
-  kind: "live" | "daily";
+  kind: "live" | "daily" | "computer";
 };
 
 type ChessComArchiveGame = {
@@ -150,6 +150,13 @@ export function parseChessComGameUrl(url: URL): ChessComGameUrl | null {
   if (hostWithoutWww(url) !== "chess.com") return null;
 
   const path = url.pathname;
+  const computerMatch =
+    path.match(/^\/game\/computer\/(\d+)/) ??
+    path.match(/^\/analysis\/game\/computer\/(\d+)/);
+  if (computerMatch) {
+    return { kind: "computer", gameId: computerMatch[1] };
+  }
+
   const match =
     path.match(/^\/game\/(live|daily)\/(\d+)/) ??
     path.match(/^\/analysis\/game\/(live|daily)\/(\d+)/) ??
@@ -157,6 +164,12 @@ export function parseChessComGameUrl(url: URL): ChessComGameUrl | null {
 
   if (!match) return null;
   return { kind: match[1] as "live" | "daily", gameId: match[2] };
+}
+
+function chessComComputerAnalysisUrl(gameId: string): string {
+  const url = new URL(`https://www.chess.com/analysis/game/computer/${gameId}`);
+  url.searchParams.set("move", "0");
+  return url.toString();
 }
 
 function chessComArchiveUrl(username: string, year: string, month: string) {
@@ -173,6 +186,8 @@ function getObjectValue(record: unknown, key: string): unknown {
 }
 
 function chessComCallbackUrls(game: ChessComGameUrl): string[] {
+  if (game.kind === "computer") return [];
+
   const primary = `https://www.chess.com/callback/${game.kind}/game/${game.gameId}`;
   const fallbackKind = game.kind === "live" ? "daily" : "live";
   return [
@@ -200,10 +215,53 @@ function findChessComArchiveGame(
   );
 }
 
+function decodeJsStringLiteralContent(raw: string): string {
+  return JSON.parse(
+    `"${raw.replace(/\\'/g, "'").replace(/"/g, '\\"')}"`,
+  ) as string;
+}
+
+function extractChessComAnalysisPgn(html: string): string | null {
+  const match = /\bpgn:\s*'((?:\\.|[^'\\])*)'/.exec(html);
+  if (!match) return null;
+
+  try {
+    return decodeJsStringLiteralContent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+async function resolveChessComComputerGameUrl(
+  gameUrl: ChessComGameUrl,
+  fetcher: GameSourceFetch,
+): Promise<ResolvedGameSource> {
+  const normalizedUrl = chessComComputerAnalysisUrl(gameUrl.gameId);
+  const html = await fetchText(fetcher, normalizedUrl, "chess.com");
+  const pgn = extractChessComAnalysisPgn(html);
+  if (!pgn) {
+    throw new GameSourceError(
+      "Chess.com did not expose a public PGN for that computer game.",
+      404,
+    );
+  }
+
+  return {
+    pgn: normalizeFetchedPgn(pgn, "chess.com"),
+    provider: "chess.com",
+    sourceType: "url",
+    normalizedUrl,
+  };
+}
+
 async function resolveChessComGameUrl(
   gameUrl: ChessComGameUrl,
   fetcher: GameSourceFetch,
 ): Promise<ResolvedGameSource> {
+  if (gameUrl.kind === "computer") {
+    return resolveChessComComputerGameUrl(gameUrl, fetcher);
+  }
+
   let callbackGame: unknown = null;
 
   for (const callbackUrl of chessComCallbackUrls(gameUrl)) {

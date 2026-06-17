@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFAULT_POSITION } from "chess.js";
-import { parsePgnForStorage } from "../lib/chess/pgn-record";
+import {
+  parsePgnForStorage,
+  storedGameToParsedGame,
+} from "../lib/chess/pgn-record";
 
 const SAMPLE_PGN = `[Event "Tempo Smoke"]
 [Site "Local"]
@@ -41,6 +44,11 @@ test("parsePgnForStorage extracts metadata and move rows from PGN", () => {
   );
   assert.equal(result.game.moves[0].fenBefore, DEFAULT_POSITION);
   assert.notEqual(result.game.moves[0].fenAfter, DEFAULT_POSITION);
+  assert.equal(result.game.moves[0].lan, "e2e4");
+  assert.equal(result.game.moves[0].from, "e2");
+  assert.equal(result.game.moves[0].to, "e4");
+  assert.equal(result.game.moves[2].lan, "g1f3");
+  assert.equal(result.game.headers.ECO, undefined);
 });
 
 test("parsePgnForStorage rejects PGNs with no moves", () => {
@@ -49,4 +57,19 @@ test("parsePgnForStorage rejects PGNs with no moves", () => {
   assert.equal(result.ok, false);
   if (result.ok) return;
   assert.match(result.error, /No moves/i);
+});
+
+test("storedGameToParsedGame preserves engine-comparison move metadata", () => {
+  const result = parsePgnForStorage(SAMPLE_PGN);
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+
+  const parsed = storedGameToParsedGame(result.game);
+
+  assert.equal(parsed.moves[0].lan, "e2e4");
+  assert.equal(parsed.moves[0].from, "e2");
+  assert.equal(parsed.moves[0].to, "e4");
+  assert.equal(parsed.moves[1].lan, "e7e5");
+  assert.equal(parsed.moves[2].lan, "g1f3");
 });

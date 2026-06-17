@@ -101,12 +101,55 @@ test("resolveGameSource resolves a Chess.com live game URL through the public ar
   ]);
 });
 
+test("resolveGameSource extracts PGN from a Chess.com computer-game analysis page", async () => {
+  const pgn = `[Event "Play vs Bot"]
+[Site "Chess.com"]
+[White "AspectOTD"]
+[Black "Janjay-BOT"]
+[Result "1-0"]
+
+1. e4 e5 1-0`;
+  const calls: string[] = [];
+
+  const resolved = await resolveGameSource(
+    "https://www.chess.com/analysis/game/computer/1570491206/review?move=0",
+    {
+      fetch: async (input) => {
+        const url = String(input);
+        calls.push(url);
+        assert.equal(
+          url,
+          "https://www.chess.com/analysis/game/computer/1570491206?move=0",
+        );
+        return textResponse(
+          `<script>window.chesscom.analysis = { pgn: '${pgn.replace(/\n/g, "\\n")}' };</script>`,
+          "text/html",
+        );
+      },
+    },
+  );
+
+  assert.equal(resolved.sourceType, "url");
+  assert.equal(resolved.provider, "chess.com");
+  assert.equal(resolved.normalizedUrl, calls[0]);
+  assert.equal(resolved.pgn, pgn);
+});
+
 test("provider URL parsers reject unsupported URLs", () => {
   assert.equal(parseLichessGameId(new URL("https://lichess.org/abcdefgh")), "abcdefgh");
   assert.deepEqual(parseChessComGameUrl(new URL("https://www.chess.com/game/live/12345")), {
     gameId: "12345",
     kind: "live",
   });
+  assert.deepEqual(
+    parseChessComGameUrl(
+      new URL("https://www.chess.com/analysis/game/computer/1570491206/review"),
+    ),
+    {
+      gameId: "1570491206",
+      kind: "computer",
+    },
+  );
   assert.equal(parseLichessGameId(new URL("https://example.com/abcdefgh")), null);
   assert.equal(parseChessComGameUrl(new URL("https://www.chess.com/news")), null);
 });

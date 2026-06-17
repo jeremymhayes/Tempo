@@ -102,6 +102,11 @@ function shortName(value: string) {
   return `${clean.slice(0, 13)}…`;
 }
 
+function headerRating(value: string | undefined): number | undefined {
+  const rating = Number(value);
+  return Number.isInteger(rating) && rating > 0 ? rating : undefined;
+}
+
 export function ReviewClient({
   initialGame,
   initialReviewSnapshot,
@@ -196,7 +201,7 @@ export function ReviewClient({
     [snapshotEvalByPly, deepReview.evalByPly, liveEvalByPly],
   );
   const opening = useMemo(
-    () => (game ? (initialOpening ?? deriveOpeningBreakdown(game.moves)) : null),
+    () => (game ? (initialOpening ?? deriveOpeningBreakdown(game)) : null),
     [game, initialOpening],
   );
   const classifiedMoves = useMemo<ReviewListMove[]>(() => {
@@ -549,6 +554,8 @@ export function ReviewClient({
             <ReviewSummaryPanel
               whiteName={whiteName}
               blackName={blackName}
+              whitePlayerRating={headerRating(game.headers.WhiteElo)}
+              blackPlayerRating={headerRating(game.headers.BlackElo)}
               stats={stats}
               moves={classifiedMoves}
               evalByPly={displayEvalByPly}

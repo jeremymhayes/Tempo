@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { GameMove, ParsedGame } from "@/types/chess";
 import type { SavedGameDetailDto, SavedGameSummary } from "@/lib/api/games";
 import { toParsedGame } from "@/lib/api/games";
+import { parsePgnForReview } from "@/lib/chess/pgn-review";
 import { deriveOpeningBreakdown } from "@/lib/chess/openings";
 import { filterSavedGameSummaries } from "@/lib/games/filters";
 import { reviewSnapshotPersistenceFields } from "@/lib/games/queries";
@@ -89,6 +90,31 @@ describe("opening breakdown", () => {
     assert.equal(breakdown.bookExitPly, 0);
     assert.equal(breakdown.bookExitMove, "1. h4");
   });
+
+  it("uses Chess.com ECOUrl metadata to mark the full imported book line", () => {
+    const parsed = parsePgnForReview(`[Event "Play vs Bot"]
+[Site "Chess.com"]
+[Date "2026.06.16"]
+[White "AspectOTD"]
+[Black "Janjay-BOT"]
+[Result "1-0"]
+[ECO "C47"]
+[ECOUrl "https://www.chess.com/openings/Four-Knights-Game-Italian-Variation...5.Nxe4-d5-6.Bd3-dxe4-7.Bxe4"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Bc4 Nxe4 5. Nxe4 d5 6. Bd3 dxe4 7. Bxe4 Nd4 1-0`);
+
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+
+    const breakdown = deriveOpeningBreakdown(parsed.game);
+
+    assert.equal(breakdown.name, "Four Knights Game Italian Variation");
+    assert.equal(breakdown.eco, "C47");
+    assert.equal(breakdown.matchedPlyCount, 13);
+    assert.equal(breakdown.bookLastPly, 12);
+    assert.equal(breakdown.bookExitPly, 13);
+    assert.equal(breakdown.bookExitMove, "7... Nd4");
+  });
 });
 
 describe("saved game filters", () => {
@@ -144,8 +170,8 @@ describe("review snapshots", () => {
 
     assert.equal(snapshot.version, 1);
     assert.equal(snapshot.moves.length, 6);
-    assert.equal(snapshot.stats.accuracy.white, 100);
-    assert.equal(snapshot.stats.rating.white, 1750);
+    assert.equal(snapshot.stats.accuracy.white, undefined);
+    assert.equal(snapshot.stats.rating.white, undefined);
     assert.equal(snapshot.blunders, 0);
     assert.equal(snapshot.moves[0].classification, "book");
   });

@@ -25,7 +25,7 @@ export default async function SharedReportPage({
 
   const parsedGame = toParsedGame(game);
   const snapshot = game.reviewSnapshot ?? createReviewSnapshot(parsedGame);
-  const opening = deriveOpeningBreakdown(parsedGame.moves);
+  const opening = deriveOpeningBreakdown(parsedGame);
 
   return (
     <SharedReviewReport

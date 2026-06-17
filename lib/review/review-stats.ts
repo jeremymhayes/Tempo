@@ -110,7 +110,9 @@ function moveAccuracyFromWinChanceLoss(loss: number): number {
   return roundOne(Math.max(0, Math.min(100, accuracy)));
 }
 
-function moveAccuracy(move: ReviewListMove): number {
+function moveAccuracy(move: ReviewListMove): number | undefined {
+  if (move.classification === "book") return undefined;
+
   if (
     move.classification &&
     shouldUseCentipawnAccuracy(move.classification) &&
@@ -162,7 +164,10 @@ export function buildReviewStats(moves: ReviewListMove[]): ReviewStats {
     const side = move.color === "w" ? "white" : "black";
     counts[side][move.classification] =
       (counts[side][move.classification] ?? 0) + 1;
-    scores[side].push(moveAccuracy(move));
+    const accuracy = moveAccuracy(move);
+    if (typeof accuracy === "number") {
+      scores[side].push(accuracy);
+    }
   }
 
   const whiteAccuracy = average(scores.white);

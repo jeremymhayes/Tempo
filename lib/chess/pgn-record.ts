@@ -1,16 +1,22 @@
 import { Chess, DEFAULT_POSITION } from "chess.js";
-import type { ParsedGame, PieceColor } from "@/types/chess";
+import type { GameHeaders, ParsedGame, PieceColor } from "@/types/chess";
 
 export type StoredMoveRecord = {
   moveNumber: number;
   color: PieceColor;
   san: string;
+  lan: string;
+  from: string;
+  to: string;
+  captured?: string;
+  promotion?: string;
   fenBefore: string;
   fenAfter: string;
 };
 
 export type StoredGameRecord = {
   pgn: string;
+  headers: GameHeaders;
   whiteName: string | null;
   blackName: string | null;
   result: string | null;
@@ -95,6 +101,11 @@ export function parsePgnForStorage(pgn: string): ParsePgnForStorageResult {
     moveNumber: moveNumberFromFen(move.before, Math.floor(index / 2) + 1),
     color: move.color as PieceColor,
     san: move.san,
+    lan: move.lan,
+    from: move.from,
+    to: move.to,
+    captured: move.captured,
+    promotion: move.promotion,
     fenBefore: move.before,
     fenAfter: move.after,
   }));
@@ -103,6 +114,7 @@ export function parsePgnForStorage(pgn: string): ParsePgnForStorageResult {
     ok: true,
     game: {
       pgn: trimmed,
+      headers,
       whiteName: cleanHeader(headers.White),
       blackName: cleanHeader(headers.Black),
       result: normalizeResult(headers.Result),
@@ -127,26 +139,30 @@ export function storedGameToParsedGame(game: StoredGameRecord): ParsedGame {
         game.playedAt.getUTCMonth() + 1,
       ).padStart(2, "0")}.${String(game.playedAt.getUTCDate()).padStart(2, "0")}`
     : undefined;
+  const headers: GameHeaders = {
+    ...game.headers,
+    Event: game.event || game.headers.Event,
+    Site: game.site || game.headers.Site,
+    Date: datePlayed || game.headers.Date,
+    White: game.whiteName || game.headers.White,
+    Black: game.blackName || game.headers.Black,
+    Result: result,
+  };
 
   return {
     pgn: game.pgn,
-    headers: {
-      Event: game.event || undefined,
-      Site: game.site || undefined,
-      Date: datePlayed,
-      White: game.whiteName || undefined,
-      Black: game.blackName || undefined,
-      Result: result,
-    },
+    headers,
     initialFen: game.moves[0]?.fenBefore ?? DEFAULT_POSITION,
     moves: game.moves.map((move, index) => ({
       ply: index,
       moveNumber: move.moveNumber,
       color: move.color,
       san: move.san,
-      lan: "",
-      from: "",
-      to: "",
+      lan: move.lan,
+      from: move.from,
+      to: move.to,
+      captured: move.captured,
+      promotion: move.promotion,
       fenBefore: move.fenBefore,
       fenAfter: move.fenAfter,
     })),
