@@ -82,6 +82,16 @@ export function getStockfishSpawnConfig(
   };
 }
 
+export function getStockfishGoCommand(options: AnalyzeOptions): string {
+  if (options.nodes && options.nodes > 0) {
+    return `go nodes ${Math.round(options.nodes)}`;
+  }
+  if (options.movetime && options.movetime > 0) {
+    return `go movetime ${Math.round(options.movetime)}`;
+  }
+  return `go depth ${clamp(options.depth ?? 16, 1, 40)}`;
+}
+
 function resolveStockfishPackageJson(): string {
   const resolved = require.resolve("stockfish/package.json");
   if (typeof resolved !== "string") {
@@ -246,11 +256,7 @@ export class ServerStockfishEngine implements AnalysisEngine {
 
     this.analyzing = true;
     this.startSearchTimer();
-    if (options.movetime && options.movetime > 0) {
-      this.post(`go movetime ${Math.round(options.movetime)}`);
-    } else {
-      this.post(`go depth ${clamp(options.depth ?? 16, 1, 40)}`);
-    }
+    this.post(getStockfishGoCommand(options));
   }
 
   private post(command: string): void {

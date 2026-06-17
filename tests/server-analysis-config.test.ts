@@ -29,6 +29,8 @@ describe("server analysis configuration", () => {
     const config = getServerAnalysisConfig({
       TEMPO_SERVER_ANALYSIS_ENABLED: "true",
       TEMPO_SERVER_ANALYSIS_DEPTH: "99",
+      TEMPO_SERVER_ANALYSIS_MOVETIME_MS: "999999",
+      TEMPO_SERVER_ANALYSIS_NODES: "999999999",
       TEMPO_SERVER_ANALYSIS_MULTI_PV: "9",
       TEMPO_SERVER_ANALYSIS_SKILL: "-3",
       TEMPO_SERVER_ANALYSIS_MAX_MOVES: "0",
@@ -42,6 +44,8 @@ describe("server analysis configuration", () => {
 
     assert.equal(config.enabled, true);
     assert.equal(config.analyzeOptions.depth, 40);
+    assert.equal(config.analyzeOptions.movetime, 10_000);
+    assert.equal(config.analyzeOptions.nodes, 50_000_000);
     assert.equal(config.analyzeOptions.multiPV, 5);
     assert.equal(config.analyzeOptions.skill, 0);
     assert.equal(config.maxMoves, 1);
@@ -59,6 +63,8 @@ describe("server analysis configuration", () => {
     });
 
     assert.equal(config.analyzeOptions.depth, 20);
+    assert.equal(config.analyzeOptions.movetime, undefined);
+    assert.equal(config.analyzeOptions.nodes, undefined);
     assert.equal(config.analyzeOptions.multiPV, 3);
     assert.equal(config.analyzeOptions.skill, 20);
     assert.equal(config.stockfishFlavor, "single");

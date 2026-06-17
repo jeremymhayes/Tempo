@@ -23,6 +23,10 @@ const DEFAULT_MAX_PGN_LENGTH = 200_000;
 const DEFAULT_MAX_CONCURRENT = 1;
 const DEFAULT_SERVER_ANALYSIS_DEPTH = 20;
 const DEFAULT_STOCKFISH_FLAVOR = "single";
+const MIN_SERVER_ANALYSIS_MOVETIME_MS = 50;
+const MAX_SERVER_ANALYSIS_MOVETIME_MS = 10_000;
+const MIN_SERVER_ANALYSIS_NODES = 1_000;
+const MAX_SERVER_ANALYSIS_NODES = 50_000_000;
 const MAX_STOCKFISH_THREADS = 32;
 const MAX_STOCKFISH_HASH_MB = 4096;
 
@@ -43,6 +47,18 @@ export function getServerAnalysisConfig(
         1,
         40,
       ),
+      movetime:
+        readOptionalInt(
+          env.TEMPO_SERVER_ANALYSIS_MOVETIME_MS,
+          MIN_SERVER_ANALYSIS_MOVETIME_MS,
+          MAX_SERVER_ANALYSIS_MOVETIME_MS,
+        ) ?? undefined,
+      nodes:
+        readOptionalInt(
+          env.TEMPO_SERVER_ANALYSIS_NODES,
+          MIN_SERVER_ANALYSIS_NODES,
+          MAX_SERVER_ANALYSIS_NODES,
+        ) ?? undefined,
       multiPV: readInt(
         env.TEMPO_SERVER_ANALYSIS_MULTI_PV,
         REVIEW_ENGINE_MULTI_PV,

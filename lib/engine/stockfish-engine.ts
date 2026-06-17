@@ -122,7 +122,9 @@ export class StockfishEngine implements AnalysisEngine {
     this.post(`position fen ${fen}`);
 
     this.analyzing = true;
-    if (options.movetime && options.movetime > 0) {
+    if (options.nodes && options.nodes > 0) {
+      this.post(`go nodes ${Math.round(options.nodes)}`);
+    } else if (options.movetime && options.movetime > 0) {
       this.post(`go movetime ${Math.round(options.movetime)}`);
     } else {
       this.post(`go depth ${clamp(options.depth ?? 16, 1, 40)}`);

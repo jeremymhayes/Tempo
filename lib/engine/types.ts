@@ -51,6 +51,8 @@ export interface AnalyzeOptions {
   depth?: number;
   /** Fixed-time search in milliseconds. */
   movetime?: number;
+  /** Fixed search effort in nodes. Takes precedence over movetime and depth. */
+  nodes?: number;
   /** Number of lines to return (MultiPV). */
   multiPV?: number;
   /** Stockfish "Skill Level", 0–20. */

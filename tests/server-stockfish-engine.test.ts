@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { DEFAULT_POSITION } from "chess.js";
 import type { AnalysisUpdate } from "@/lib/engine/types";
 import {
+  getStockfishGoCommand,
   getStockfishSpawnConfig,
   getStockfishScriptPath,
   ServerStockfishEngine,
@@ -27,6 +28,17 @@ describe("server Stockfish engine", () => {
         command: "/usr/games/stockfish",
         args: [],
       },
+    );
+  });
+
+  it("uses a fixed node budget before movetime or depth when configured", () => {
+    assert.equal(
+      getStockfishGoCommand({
+        depth: 18,
+        movetime: 600,
+        nodes: 750_000,
+      }),
+      "go nodes 750000",
     );
   });
 
