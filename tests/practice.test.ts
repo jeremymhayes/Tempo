@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import { Chess } from "chess.js";
 import { parsePgnForReview } from "@/lib/chess/pgn-review";
 import {
+  choosePracticeBotMove,
   eloToBotConfig,
   normalizeBotElo,
   PRACTICE_BOT_ELOS,
 } from "@/lib/practice/bot";
+import type { EngineLine } from "@/lib/engine/types";
 import {
   PRACTICE_MOVE_VISIBLE_ROWS,
   toPracticeMoveItems,
@@ -25,7 +27,67 @@ test("practice bot config maps Elo into bounded Stockfish settings", () => {
   assert.equal(high.skill, 20);
   assert.ok(low.movetime < high.movetime);
   assert.ok(low.depth < high.depth);
+  assert.equal(low.limitStrength, true);
+  assert.equal(low.uciElo, 1320);
+  assert.ok(low.randomMoveChance >= 0.5);
+  assert.equal(high.uciElo, 2400);
+  assert.equal(high.randomMoveChance, 0);
 });
+
+test("practice bot deliberately weakens low Elo moves beyond Stockfish skill", () => {
+  const chess = new Chess();
+  chess.move("e4");
+  const low = eloToBotConfig(400);
+  const lines: EngineLine[] = [
+    {
+      multipv: 1,
+      depth: 1,
+      score: { type: "cp", value: 20 },
+      pv: ["e7e5"],
+    },
+    {
+      multipv: 2,
+      depth: 1,
+      score: { type: "cp", value: 5 },
+      pv: ["c7c5"],
+    },
+  ];
+
+  const move = choosePracticeBotMove(chess, lines, low, sequence(0.1, 0.99));
+
+  assert.notEqual(move, "e7e5");
+  assert.ok(chess.moves({ verbose: true }).some((legal) => {
+    const promotion = legal.promotion ? String(legal.promotion) : "";
+    return `${legal.from}${legal.to}${promotion}` === move;
+  }));
+});
+
+test("practice bot keeps high Elo tied to the engine best move", () => {
+  const chess = new Chess();
+  chess.move("e4");
+  const high = eloToBotConfig(2400);
+  const lines: EngineLine[] = [
+    {
+      multipv: 1,
+      depth: 10,
+      score: { type: "cp", value: 20 },
+      pv: ["e7e5"],
+    },
+    {
+      multipv: 2,
+      depth: 10,
+      score: { type: "cp", value: 5 },
+      pv: ["c7c5"],
+    },
+  ];
+
+  assert.equal(choosePracticeBotMove(chess, lines, high, () => 0.01), "e7e5");
+});
+
+function sequence(...values: number[]) {
+  let index = 0;
+  return () => values[index++] ?? values.at(-1) ?? 0;
+}
 
 test("practice result detects checkmate and draws from chess.js state", () => {
   const mate = new Chess();

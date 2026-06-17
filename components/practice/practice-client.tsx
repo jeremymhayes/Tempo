@@ -20,6 +20,7 @@ import { createEngine } from "@/lib/engine";
 import { parsePgnForReview } from "@/lib/chess/pgn-review";
 import { saveCurrentGame } from "@/lib/storage";
 import {
+  choosePracticeBotMove,
   eloToBotConfig,
   PRACTICE_BOT_ELOS,
   type PracticeBotElo,
@@ -254,12 +255,17 @@ export function PracticeClient() {
         {
           depth: config.depth,
           movetime: config.movetime,
-          multiPV: 1,
+          nodes: config.nodes,
+          multiPV: config.multiPV,
+          limitStrength: config.limitStrength,
+          uciElo: config.uciElo,
           skill: config.skill,
         },
         (update) => {
           if (requestRef.current !== requestId || !update.done) return;
-          applyBotMove(update.bestMove ?? update.lines[0]?.pv[0] ?? null);
+          applyBotMove(
+            choosePracticeBotMove(chessRef.current, update.lines, config),
+          );
         },
       );
     } catch (cause) {
@@ -492,7 +498,7 @@ export function PracticeClient() {
             <div className="grid grid-cols-3 gap-2 border-t border-zinc-800 pt-4">
               <Stat label="Skill" value={String(botConfig.skill)} />
               <Stat label="Depth" value={String(botConfig.depth)} />
-              <Stat label="Move" value={`${botConfig.movetime}ms`} />
+              <Stat label="Nodes" value={String(botConfig.nodes)} />
             </div>
 
             {error ? (

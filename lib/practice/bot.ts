@@ -1,3 +1,6 @@
+import type { Chess, Move } from "chess.js";
+import type { EngineLine } from "@/lib/engine/types";
+
 export const PRACTICE_BOT_ELOS = [
   400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000, 2200, 2400,
 ] as const;
@@ -9,10 +12,23 @@ export type PracticeBotConfig = {
   skill: number;
   movetime: number;
   depth: number;
+  nodes: number;
+  multiPV: number;
+  limitStrength: boolean;
+  uciElo: number;
+  randomMoveChance: number;
+  mistakeMoveChance: number;
 };
+
+const STOCKFISH_MIN_ELO = 1320;
+const STOCKFISH_MAX_PRACTICE_ELO = 2400;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+function roundChance(value: number) {
+  return Math.round(value * 100) / 100;
 }
 
 export function normalizeBotElo(value: number): PracticeBotElo {
@@ -27,11 +43,56 @@ export function eloToBotConfig(value: number): PracticeBotConfig {
   const progress =
     (elo - PRACTICE_BOT_ELOS[0]) /
     (PRACTICE_BOT_ELOS[PRACTICE_BOT_ELOS.length - 1] - PRACTICE_BOT_ELOS[0]);
+  const weakness = 1 - progress;
 
   return {
     elo,
     skill: Math.round(progress * 20),
-    movetime: Math.round(220 + progress * 980),
-    depth: Math.round(4 + progress * 10),
+    movetime: Math.round(80 + progress * 820),
+    depth: Math.round(1 + progress * 11),
+    nodes: Math.round(24 + progress * 8000),
+    multiPV: Math.round(1 + weakness * 4),
+    limitStrength: true,
+    uciElo: Math.round(
+      clamp(elo, STOCKFISH_MIN_ELO, STOCKFISH_MAX_PRACTICE_ELO),
+    ),
+    randomMoveChance: roundChance(0.6 * weakness * weakness),
+    mistakeMoveChance: roundChance(0.35 * weakness),
   };
+}
+
+export function choosePracticeBotMove(
+  chess: Chess,
+  lines: EngineLine[],
+  config: PracticeBotConfig,
+  random = Math.random,
+): string | null {
+  const legalMoves = chess.moves({ verbose: true }).map(moveToUci);
+  if (legalMoves.length === 0) return null;
+
+  if (random() < config.randomMoveChance) {
+    return pick(legalMoves, random);
+  }
+
+  const legalSet = new Set(legalMoves);
+  const engineMoves = lines
+    .map((line) => line.pv[0])
+    .filter((move): move is string => Boolean(move && legalSet.has(move)));
+
+  if (engineMoves.length === 0) return pick(legalMoves, random);
+
+  if (engineMoves.length > 1 && random() < config.mistakeMoveChance) {
+    return pick(engineMoves.slice(1, config.multiPV), random);
+  }
+
+  return engineMoves[0];
+}
+
+function moveToUci(move: Pick<Move, "from" | "to" | "promotion">) {
+  return `${move.from}${move.to}${move.promotion ? String(move.promotion) : ""}`;
+}
+
+function pick<T>(items: T[], random: () => number): T {
+  const index = Math.min(items.length - 1, Math.floor(random() * items.length));
+  return items[index];
 }

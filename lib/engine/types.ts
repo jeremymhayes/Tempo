@@ -57,6 +57,10 @@ export interface AnalyzeOptions {
   multiPV?: number;
   /** Stockfish "Skill Level", 0–20. */
   skill?: number;
+  /** Enables Stockfish's built-in Elo limiter when supported. */
+  limitStrength?: boolean;
+  /** Stockfish UCI_Elo value. Current Stockfish minimum is 1320. */
+  uciElo?: number;
 }
 
 export type EngineStatus = "idle" | "loading" | "ready" | "analyzing" | "error";

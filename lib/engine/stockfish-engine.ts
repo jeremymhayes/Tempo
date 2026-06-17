@@ -116,9 +116,18 @@ export class StockfishEngine implements AnalysisEngine {
 
     const multiPV = clamp(options.multiPV ?? 1, 1, 5);
     const skill = clamp(options.skill ?? 20, 0, 20);
+    const uciElo = clamp(options.uciElo ?? 1320, 1320, 3190);
 
     this.post(`setoption name MultiPV value ${multiPV}`);
     this.post(`setoption name Skill Level value ${skill}`);
+    this.post(
+      `setoption name UCI_LimitStrength value ${
+        options.limitStrength ? "true" : "false"
+      }`,
+    );
+    if (options.limitStrength) {
+      this.post(`setoption name UCI_Elo value ${uciElo}`);
+    }
     this.post(`position fen ${fen}`);
 
     this.analyzing = true;
