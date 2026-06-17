@@ -16,12 +16,20 @@ export type PracticeBotConfig = {
   multiPV: number;
   limitStrength: boolean;
   uciElo: number;
-  randomMoveChance: number;
+  humanMoveChance: number;
   mistakeMoveChance: number;
 };
 
 const STOCKFISH_MIN_ELO = 1320;
 const STOCKFISH_MAX_PRACTICE_ELO = 2400;
+const PIECE_VALUES = {
+  p: 100,
+  n: 320,
+  b: 330,
+  r: 500,
+  q: 900,
+  k: 0,
+} as const;
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -56,7 +64,7 @@ export function eloToBotConfig(value: number): PracticeBotConfig {
     uciElo: Math.round(
       clamp(elo, STOCKFISH_MIN_ELO, STOCKFISH_MAX_PRACTICE_ELO),
     ),
-    randomMoveChance: roundChance(0.6 * weakness * weakness),
+    humanMoveChance: roundChance(0.6 * weakness * weakness),
     mistakeMoveChance: roundChance(0.35 * weakness),
   };
 }
@@ -70,8 +78,9 @@ export function choosePracticeBotMove(
   const legalMoves = chess.moves({ verbose: true }).map(moveToUci);
   if (legalMoves.length === 0) return null;
 
-  if (random() < config.randomMoveChance) {
-    return pick(legalMoves, random);
+  const legalVerboseMoves = chess.moves({ verbose: true });
+  if (random() < config.humanMoveChance) {
+    return chooseHumanMove(legalVerboseMoves, random);
   }
 
   const legalSet = new Set(legalMoves);
@@ -79,7 +88,7 @@ export function choosePracticeBotMove(
     .map((line) => line.pv[0])
     .filter((move): move is string => Boolean(move && legalSet.has(move)));
 
-  if (engineMoves.length === 0) return pick(legalMoves, random);
+  if (engineMoves.length === 0) return chooseHumanMove(legalVerboseMoves, random);
 
   if (engineMoves.length > 1 && random() < config.mistakeMoveChance) {
     return pick(engineMoves.slice(1, config.multiPV), random);
@@ -90,6 +99,52 @@ export function choosePracticeBotMove(
 
 function moveToUci(move: Pick<Move, "from" | "to" | "promotion">) {
   return `${move.from}${move.to}${move.promotion ? String(move.promotion) : ""}`;
+}
+
+function chooseHumanMove(moves: Move[], random: () => number): string {
+  const ranked = moves
+    .map((move) => ({ move, score: humanMoveScore(move) }))
+    .sort((a, b) => b.score - a.score);
+  const bestScore = ranked[0]?.score ?? 0;
+  const candidates = ranked
+    .filter((item) => item.score >= bestScore - 35)
+    .slice(0, 4);
+
+  return moveToUci(pick(candidates.length ? candidates : ranked, random).move);
+}
+
+function humanMoveScore(move: Move): number {
+  let score = 0;
+
+  if (move.isCapture()) {
+    score += PIECE_VALUES[move.captured ?? "p"];
+    score += Math.max(0, PIECE_VALUES[move.captured ?? "p"] - PIECE_VALUES[move.piece]) / 8;
+  }
+  if (move.isPromotion()) score += PIECE_VALUES[move.promotion ?? "q"];
+  if (move.san.includes("#")) score += 1000;
+  else if (move.san.includes("+")) score += 140;
+  if (move.isKingsideCastle() || move.isQueensideCastle()) score += 90;
+  if (move.piece === "n") {
+    const homeRank = move.color === "w" ? "1" : "8";
+    if (move.from.endsWith(homeRank)) {
+      if (/^[cf][36]$/.test(move.to)) score += 60;
+      else if (/^[ah][36]$/.test(move.to)) score -= 35;
+      else score += 25;
+    }
+  }
+  if (move.piece === "b") {
+    const homeRank = move.color === "w" ? "1" : "8";
+    if (move.from.endsWith(homeRank)) score += 40;
+  }
+  if (move.piece === "p") {
+    if (/^[de][45]$/.test(move.to)) score += 80;
+    else if (/^[cf][45]$/.test(move.to)) score += 20;
+  }
+  if (move.piece === "k" && !move.isKingsideCastle() && !move.isQueensideCastle()) {
+    score -= 45;
+  }
+
+  return score;
 }
 
 function pick<T>(items: T[], random: () => number): T {

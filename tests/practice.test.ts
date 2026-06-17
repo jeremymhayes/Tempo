@@ -29,12 +29,31 @@ test("practice bot config maps Elo into bounded Stockfish settings", () => {
   assert.ok(low.depth < high.depth);
   assert.equal(low.limitStrength, true);
   assert.equal(low.uciElo, 1320);
-  assert.ok(low.randomMoveChance >= 0.5);
+  assert.ok(low.humanMoveChance >= 0.5);
   assert.equal(high.uciElo, 2400);
-  assert.equal(high.randomMoveChance, 0);
+  assert.equal(high.humanMoveChance, 0);
 });
 
-test("practice bot deliberately weakens low Elo moves beyond Stockfish skill", () => {
+test("practice bot weakens low Elo with human-looking tactical moves", () => {
+  const chess = new Chess();
+  chess.load("8/8/8/3p4/4P3/8/8/4k2K b - - 0 1");
+  const low = eloToBotConfig(400);
+
+  assert.equal(choosePracticeBotMove(chess, [], low, () => 0.1), "d5e4");
+});
+
+test("practice bot opens with plausible weak-player moves instead of random rim moves", () => {
+  const chess = new Chess();
+  const low = eloToBotConfig(400);
+  const openingMove = choosePracticeBotMove(chess, [], low, sequence(0.1, 0.99));
+
+  assert.ok(
+    ["e2e4", "d2d4", "g1f3", "b1c3"].includes(openingMove ?? ""),
+    `expected a normal opening move, received ${openingMove}`,
+  );
+});
+
+test("practice bot can choose weaker engine candidates without random legal moves", () => {
   const chess = new Chess();
   chess.move("e4");
   const low = eloToBotConfig(400);
@@ -53,13 +72,10 @@ test("practice bot deliberately weakens low Elo moves beyond Stockfish skill", (
     },
   ];
 
-  const move = choosePracticeBotMove(chess, lines, low, sequence(0.1, 0.99));
-
-  assert.notEqual(move, "e7e5");
-  assert.ok(chess.moves({ verbose: true }).some((legal) => {
-    const promotion = legal.promotion ? String(legal.promotion) : "";
-    return `${legal.from}${legal.to}${promotion}` === move;
-  }));
+  assert.equal(
+    choosePracticeBotMove(chess, lines, low, sequence(0.99, 0.01, 0)),
+    "c7c5",
+  );
 });
 
 test("practice bot keeps high Elo tied to the engine best move", () => {

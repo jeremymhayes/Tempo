@@ -73,11 +73,18 @@ function shouldUseCentipawnAccuracy(classification: MoveClassification): boolean
 function ratingPenalty(
   counts: Partial<Record<MoveClassification, number>> = {},
 ): number {
+  const blunders = counts.blunder ?? 0;
+  const mistakes = counts.mistake ?? 0;
+  const misses = counts.miss ?? 0;
+
   return (
     (counts.inaccuracy ?? 0) * 20 +
-    (counts.mistake ?? 0) * 55 +
-    (counts.miss ?? 0) * 80 +
-    (counts.blunder ?? 0) * 105
+    mistakes * 55 +
+    misses * 80 +
+    blunders * 105 +
+    Math.max(0, blunders - 1) * 130 +
+    Math.max(0, mistakes - 1) * 20 +
+    Math.max(0, misses - 1) * 40
   );
 }
 

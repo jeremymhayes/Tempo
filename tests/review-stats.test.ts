@@ -83,6 +83,9 @@ describe("review stats helpers", () => {
       estimateGameRating(86.4, { mistake: 1, miss: 1 }),
       1411,
     );
+    assert.ok(
+      (estimateGameRating(86.4, { blunder: 3, mistake: 2 }) ?? 9999) < 900,
+    );
     assert.equal(estimateGameRating(undefined), undefined);
   });
 
